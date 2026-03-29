@@ -1,0 +1,16 @@
+# Generated data (large, re-fetch with fetch_ura_data.py)
+ura_data.js
+**/ura_data.js
+
+# Temp / test files
+test_*.js
+check_script.js
+test_chartTenure.js
+nul
+
+# Local Claude settings
+.claude/
+
+# Python cache
+__pycache__/
+*.pyc
