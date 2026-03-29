@@ -1,0 +1,6 @@
+# Generated data — re-create with fetch_ura_data.py
+ura_data.js
+
+# Python cache
+__pycache__/
+*.pyc

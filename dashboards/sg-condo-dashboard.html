@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Singapore Condo Price Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #C0392B; --dark: #1a2744; --blue: #2c4a8c;
+      --lblue: #e8eef7; --bg: #f0f2f6; --card: #fff;
+      --text: #1a2744; --muted: #5a6a8a; --border: #dde3ee;
+      --green: #16a34a; --orange: #d97706; --teal: #0891b2;
+    }
+    body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); }
+
+    /* ── HEADER ── */
+    .header { background:linear-gradient(135deg,#1a2744,#2c4a8c); color:#fff; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .header h1 { font-size:19px; font-weight:700; }
+    .header p  { font-size:11px; opacity:.65; margin-top:2px; }
+    .hbadges   { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .hbadge    { background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); padding:4px 11px; border-radius:20px; font-size:11px; font-weight:500; }
+    .hbadge.real { background:rgba(22,163,74,.25); border-color:rgba(22,163,74,.5); }
+    .btn-connect { background:rgba(255,255,255,.15); border:1.5px solid rgba(255,255,255,.35); color:#fff; padding:6px 13px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; }
+    .btn-connect:hover { background:rgba(255,255,255,.25); }
+
+    /* ── DATA BANNER ── */
+    .data-banner { padding:8px 28px; font-size:12px; display:flex; align-items:center; gap:10px; }
+    .data-banner.sample  { background:#fff8e1; color:#856404; border-bottom:1px solid #fde68a; }
+    .data-banner.real    { background:#f0fdf4; color:#166534; border-bottom:1px solid #bbf7d0; }
+    .data-banner.loading { background:#eff6ff; color:#1e40af; border-bottom:1px solid #bfdbfe; }
+    .banner-link { color:inherit; font-weight:700; cursor:pointer; text-decoration:underline; }
+
+    /* ── MAIN ── */
+    .main { max-width:1600px; margin:0 auto; padding:20px 26px; }
+
+    /* ── FILTERS ── */
+    .filters-card { background:var(--card); border-radius:12px; padding:13px 18px; box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+    .fg { display:flex; flex-direction:column; gap:3px; min-width:120px; }
+    .fg label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+    .fg select { padding:6px 24px 6px 9px; border:1.5px solid var(--border); border-radius:7px; font-size:12.5px; color:var(--text); background:#fff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 5px center/14px; appearance:none; transition:border-color .15s; }
+    .fg select:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+    .fg select.wide { min-width:185px; }
+    .fg.ura-only { display:none; }
+    .fg.ura-only.visible { display:flex; }
+    .btn-reset { padding:6px 13px; background:var(--bg); border:1.5px solid var(--border); border-radius:7px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; align-self:flex-end; }
+    .btn-reset:hover { background:var(--border); color:var(--text); }
+
+    /* ── KPI ── */
+    .kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:13px; margin-bottom:16px; }
+    .kpi { background:var(--card); border-radius:12px; padding:15px 17px; box-shadow:0 1px 4px rgba(0,0,0,.07); border-top:3px solid transparent; transition:transform .15s,box-shadow .15s; }
+    .kpi:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
+    .kpi:nth-child(1){border-top-color:var(--red);}
+    .kpi:nth-child(2){border-top-color:var(--blue);}
+    .kpi:nth-child(3){border-top-color:var(--green);}
+    .kpi:nth-child(4){border-top-color:var(--orange);}
+    .kpi:nth-child(5){border-top-color:var(--teal);}
+    .kpi-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+    .kpi-value { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-.4px; }
+    .kpi-sub   { font-size:10.5px; color:var(--muted); margin-top:3px; }
+
+    /* ── CHART GRID ── */
+    .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:13px; }
+    .cc { background:var(--card); border-radius:12px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,.07); }
+    .ct { font-size:13px; font-weight:700; color:var(--text); }
+    .cs { font-size:11px; color:var(--muted); margin-bottom:12px; margin-top:2px; }
+
+    /* ── TABLE ── */
+    .table-card { background:var(--card); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); overflow:hidden; margin-bottom:13px; }
+    .table-hdr { padding:13px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+    .table-hdr h3 { font-size:13px; font-weight:700; }
+    .table-meta { font-size:11px; color:var(--muted); }
+    .table-scroll { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    thead th { background:#f8f9fc; padding:8px 12px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+    thead th:hover  { background:var(--lblue); color:var(--blue); }
+    thead th.sorted { background:var(--lblue); color:var(--blue); }
+    tbody td { padding:8px 12px; border-bottom:1px solid #f0f2f6; white-space:nowrap; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:#f6f8fc; }
+    .bld { font-weight:700; }
+    .badge { display:inline-block; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; }
+    .b-fh  { background:#dcfce7; color:#15803d; }
+    .b-lh  { background:#fff7ed; color:#c2410c; }
+    .b-999 { background:#eff6ff; color:#1d4ed8; }
+    .b-ns  { background:#f0fdf4; color:#166534; }
+    .b-re  { background:#f8fafc; color:#475569; }
+    .b-ss  { background:#fefce8; color:#854d0e; }
+    .b-ccr { background:#fdf2f8; color:#9d174d; }
+    .b-rcr { background:#fff7ed; color:#c2410c; }
+    .b-ocr { background:#eff6ff; color:#1d4ed8; }
+    .pagination { display:flex; align-items:center; justify-content:space-between; padding:10px 18px; border-top:1px solid var(--border); }
+    .pag-info { font-size:11px; color:var(--muted); }
+    .pag-btns { display:flex; gap:3px; }
+    .pb { width:27px; height:27px; display:flex; align-items:center; justify-content:center; border:1.5px solid var(--border); border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; background:#fff; color:var(--text); transition:all .15s; }
+    .pb:hover,.pb.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+    .pb:disabled { opacity:.3; cursor:not-allowed; pointer-events:none; }
+    .no-data { text-align:center; padding:36px; color:var(--muted); font-size:13px; }
+
+    /* ── MODAL ── */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal-card { background:#fff; border-radius:16px; padding:28px 30px; max-width:560px; width:94%; box-shadow:0 20px 60px rgba(0,0,0,.25); transform:translateY(10px); transition:transform .2s; }
+    .modal-overlay.open .modal-card { transform:translateY(0); }
+    .modal-h { font-size:17px; font-weight:800; color:var(--text); margin-bottom:6px; }
+    .modal-sub { font-size:12px; color:var(--muted); margin-bottom:18px; line-height:1.5; }
+    .mfield { margin-bottom:14px; }
+    .mfield label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:4px; }
+    .mfield input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; color:var(--text); transition:border-color .15s; }
+    .mfield input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+    .modal-actions { display:flex; gap:8px; margin-top:18px; }
+    .btn-primary { flex:1; padding:9px; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:background .15s; }
+    .btn-primary:hover { background:#1a3a7a; }
+    .btn-secondary { padding:9px 16px; background:var(--bg); border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; }
+    .btn-secondary:hover { background:var(--border); }
+    .modal-divider { text-align:center; font-size:11px; color:var(--muted); margin:14px 0; position:relative; }
+    .modal-divider::before,.modal-divider::after { content:''; position:absolute; top:50%; width:42%; height:1px; background:var(--border); }
+    .modal-divider::before { left:0; } .modal-divider::after { right:0; }
+    .modal-alt { background:#f8f9fc; border-radius:10px; padding:14px; font-size:12px; }
+    .modal-alt h4 { font-size:12px; font-weight:700; margin-bottom:6px; }
+    .code-block { background:#1e2a44; color:#a5f3fc; font-family:monospace; font-size:11px; padding:10px 12px; border-radius:6px; margin:8px 0; white-space:pre; overflow-x:auto; }
+    .modal-msg { padding:8px 10px; border-radius:6px; font-size:12px; margin-top:10px; display:none; }
+    .modal-msg.err  { background:#fee2e2; color:#991b1b; display:block; }
+    .modal-msg.info { background:#eff6ff; color:#1e40af; display:block; }
+    .modal-msg.ok   { background:#f0fdf4; color:#166534; display:block; }
+    .progress-ring { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── FOOTER ── */
+    .footer { text-align:center; padding:14px; font-size:11px; color:var(--muted); }
+
+    @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-row{grid-template-columns:1fr}.main{padding:14px}}
+    @media(max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;gap:8px}}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <span style="font-size:28px">🏙️</span>
+    <div>
+      <h1>Singapore Condo Price Tracker</h1>
+      <p>PSF &amp; transaction analytics · District · Project · Bedroom · Tenure · 2020–2025</p>
+    </div>
+  </div>
+  <div class="hbadges">
+    <span class="hbadge" id="src-badge">📊 Sample Data</span>
+    <button class="btn-connect" id="btn-connect">🔌 Load Real Data</button>
+  </div>
+</header>
+
+<!-- DATA BANNER -->
+<div class="data-banner sample" id="data-banner">
+  ⚠️ Displaying <strong>synthetic sample data</strong>.
+  <span class="banner-link" id="banner-cta" onclick="openModal()">Connect to URA API or run fetch_ura_data.py to load real transactions.</span>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- FILTERS -->
+  <div class="filters-card">
+    <div class="fg">
+      <label>District</label>
+      <select id="f-district"><option value="all">All Districts</option></select>
+    </div>
+    <div class="fg">
+      <label>Bedroom Type</label>
+      <select id="f-bedroom">
+        <option value="all">All Types</option>
+        <option>Studio</option><option>1 Bedroom</option><option>2 Bedroom</option>
+        <option>3 Bedroom</option><option>4 Bedroom</option><option>Penthouse</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Year</label>
+      <select id="f-year"><option value="all">All Years</option></select>
+    </div>
+    <div class="fg">
+      <label>Tenure Type</label>
+      <select id="f-tenure-type">
+        <option value="all">All</option>
+        <option>Freehold</option><option>Leasehold</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Tenure</label>
+      <select id="f-tenure">
+        <option value="all">All Tenures</option>
+        <option>Freehold</option><option>999-year</option><option>99-year</option>
+      </select>
+    </div>
+    <!-- URA-only filters (hidden until real data loaded) -->
+    <div class="fg ura-only" id="fg-segment">
+      <label>Market Segment</label>
+      <select id="f-segment">
+        <option value="all">All</option>
+        <option>CCR</option><option>RCR</option><option>OCR</option>
+      </select>
+    </div>
+    <div class="fg ura-only" id="fg-saletype">
+      <label>Sale Type</label>
+      <select id="f-saletype">
+        <option value="all">All</option>
+        <option>New Sale</option><option>Sub-sale</option><option>Resale</option>
+      </select>
+    </div>
+    <div class="fg ura-only" id="fg-proptype">
+      <label>Property Type</label>
+      <select id="f-proptype">
+        <option value="all">All</option>
+        <option>Condominium</option><option>Apartment</option><option>Executive Condominium</option>
+      </select>
+    </div>
+    <div class="fg" style="min-width:180px;">
+      <label>Project</label>
+      <select id="f-project" class="wide"><option value="all">All Projects</option></select>
+    </div>
+    <button class="btn-reset" id="btn-reset">↺ Reset</button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Average PSF</div>
+      <div class="kpi-value" id="kv-psf">—</div>
+      <div class="kpi-sub"  id="ks-psf">per sq ft</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Median PSF</div>
+      <div class="kpi-value" id="kv-med">—</div>
+      <div class="kpi-sub"  id="ks-med">50th percentile</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Transaction</div>
+      <div class="kpi-value" id="kv-txn">—</div>
+      <div class="kpi-sub"  id="ks-txn">per unit</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Transactions</div>
+      <div class="kpi-value" id="kv-cnt">—</div>
+      <div class="kpi-sub"  id="ks-cnt">in selection</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Projects</div>
+      <div class="kpi-value" id="kv-prj">—</div>
+      <div class="kpi-sub"  id="ks-prj">unique developments</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: District PSF + Trend -->
+  <div class="charts-row">
+    <div class="cc">
+      <div class="ct">Average PSF by District</div>
+      <div class="cs">Comparing price levels across postal districts</div>
+      <div style="position:relative;height:250px"><canvas id="c-district"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="ct">PSF Price Trend by Year</div>
+      <div class="cs">Year-on-year movement by bedroom type</div>
+      <div style="position:relative;height:250px"><canvas id="c-trend"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Bedroom × Tenure + Tenure Donut -->
+  <div class="charts-row">
+    <div class="cc">
+      <div class="ct">PSF by Bedroom Type — Freehold vs Leasehold</div>
+      <div class="cs">Tenure premium comparison across unit sizes</div>
+      <div style="position:relative;height:250px"><canvas id="c-bedroom"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="ct">Transaction Volume by Tenure</div>
+      <div class="cs">Distribution across freehold and leasehold types</div>
+      <div style="position:relative;height:250px"><canvas id="c-tenure"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Txn Value + FH/LH Trend -->
+  <div class="charts-row">
+    <div class="cc">
+      <div class="ct">Avg Transaction Value by Bedroom Type</div>
+      <div class="cs">Absolute price comparison — Freehold vs Leasehold</div>
+      <div style="position:relative;height:250px"><canvas id="c-txnval"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="ct">Freehold vs Leasehold PSF — Year on Year</div>
+      <div class="cs">Tracking the freehold premium over time</div>
+      <div style="position:relative;height:250px"><canvas id="c-fhlh"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TOP PROJECTS (full width) -->
+  <div class="cc" style="margin-bottom:13px">
+    <div class="ct">Top 15 Projects by Average PSF</div>
+    <div class="cs">Ranked by avg PSF · colour = price tier (red ≥ $2,800 · blue ≥ $1,800 · teal ≥ $1,400 · green below)</div>
+    <div style="position:relative;height:350px"><canvas id="c-projects"></canvas></div>
+  </div>
+
+  <!-- DATA TABLE -->
+  <div class="table-card">
+    <div class="table-hdr">
+      <h3>Transaction Details</h3>
+      <span class="table-meta" id="tbl-meta">Loading…</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead id="tbl-head">
+          <tr>
+            <th data-col="project">Project</th>
+            <th data-col="district">District</th>
+            <th data-col="bedroomType">Bedroom</th>
+            <th data-col="size">Size (sqft)</th>
+            <th data-col="psf">PSF ($)</th>
+            <th data-col="transactionValue">Txn Value</th>
+            <th data-col="tenureType">Tenure Type</th>
+            <th data-col="tenure">Tenure</th>
+            <th data-col="year">Year</th>
+            <th data-col="marketSegment"  class="col-ura" style="display:none">Segment</th>
+            <th data-col="saleType"       class="col-ura" style="display:none">Sale Type</th>
+            <th data-col="floorRange"     class="col-ura" style="display:none">Floor</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span class="pag-info" id="pag-info"></span>
+      <div class="pag-btns" id="pag-btns"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Singapore Condo Price Tracker · Built with Chart.js · All figures in SGD<br>
+    Data source: <a href="https://eservice.ura.gov.sg/maps/api/" target="_blank" style="color:var(--blue)">URA Data Service API</a> · © Urban Redevelopment Authority, Singapore · For personal use only
+  </div>
+</div><!-- /main -->
+
+<!-- ══ MODAL ══ -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-card">
+    <div class="modal-h">🔌 Load Real URA Transaction Data</div>
+    <div class="modal-sub">
+      Two ways to load real Singapore condo transaction data from the URA Data Service API (free account required).
+    </div>
+
+    <!-- Option A: Python script (recommended) -->
+    <div class="modal-alt" style="margin-bottom:14px">
+      <h4>Option A — Python script (recommended)</h4>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Fetches ~5 years of data, saves as <code>ura_data.js</code> in the same folder, then auto-loads on refresh.</div>
+      <div class="code-block">pip install requests
+python fetch_ura_data.py</div>
+      <div style="font-size:11px;color:var(--muted)">Place <strong>ura_data.js</strong> next to <strong>sg-condo-dashboard.html</strong>, then refresh this page.</div>
+      <button class="btn-primary" style="margin-top:10px;max-width:220px" onclick="retryLoadRealData()">⟳ Check for ura_data.js now</button>
+    </div>
+
+    <div class="modal-divider">or</div>
+
+    <!-- Option B: Browser fetch -->
+    <div>
+      <h4 style="font-size:12px;font-weight:700;margin-bottom:8px">Option B — Fetch directly in browser</h4>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        Register for a free Access Key at
+        <a href="https://eservice.ura.gov.sg/maps/api/" target="_blank" style="color:var(--blue)">eservice.ura.gov.sg/maps/api/</a>,
+        then generate a daily Token.
+      </div>
+      <div class="mfield">
+        <label>Access Key</label>
+        <input type="text" id="m-key" placeholder="e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off">
+      </div>
+      <div class="mfield">
+        <label>Daily Token (generate fresh each day)</label>
+        <input type="text" id="m-token" placeholder="Paste your daily token here" autocomplete="off">
+      </div>
+      <div class="modal-msg" id="m-msg"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" id="m-fetch-btn" onclick="browserFetch()">
+        Fetch from URA API
+      </button>
+      <button class="btn-secondary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════
+//  SAMPLE DATA GENERATION (fallback)
+// ══════════════════════════════════════════════════════
+const SAMPLE_PROJECTS = [
+  {n:"The Sail @ Marina Bay",      d:"D01",tt:"Leasehold",t:"99-year",  p:2250,v:300},
+  {n:"One Shenton",                d:"D01",tt:"Leasehold",t:"99-year",  p:2100,v:280},
+  {n:"Marina Bay Residences",      d:"D01",tt:"Leasehold",t:"99-year",  p:2400,v:350},
+  {n:"Icon Village",               d:"D02",tt:"Leasehold",t:"99-year",  p:1900,v:240},
+  {n:"Skysuites @ Anson",          d:"D02",tt:"Freehold", t:"Freehold", p:2050,v:270},
+  {n:"Stirling Residences",        d:"D03",tt:"Leasehold",t:"99-year",  p:1860,v:220},
+  {n:"Avenue South Residence",     d:"D03",tt:"Leasehold",t:"99-year",  p:1920,v:230},
+  {n:"Queens Peak",                d:"D03",tt:"Leasehold",t:"99-year",  p:1750,v:200},
+  {n:"Reflections at Keppel Bay",  d:"D04",tt:"Leasehold",t:"99-year",  p:1980,v:320},
+  {n:"Corals at Keppel Bay",       d:"D04",tt:"Leasehold",t:"99-year",  p:2150,v:350},
+  {n:"Caribbean at Keppel Bay",    d:"D04",tt:"Leasehold",t:"99-year",  p:1700,v:250},
+  {n:"Normanton Park",             d:"D05",tt:"Leasehold",t:"99-year",  p:1620,v:200},
+  {n:"Kent Ridge Hill Residences", d:"D05",tt:"Leasehold",t:"99-year",  p:1710,v:215},
+  {n:"Cairnhill 16",               d:"D09",tt:"Freehold", t:"Freehold", p:3250,v:500},
+  {n:"8 Saint Thomas",             d:"D09",tt:"Freehold", t:"Freehold", p:3550,v:560},
+  {n:"The Orchard Residences",     d:"D09",tt:"Leasehold",t:"99-year",  p:3050,v:480},
+  {n:"Leedon Residence",           d:"D09",tt:"Freehold", t:"Freehold", p:2850,v:430},
+  {n:"Gramercy Park",              d:"D10",tt:"Freehold", t:"Freehold", p:2950,v:460},
+  {n:"The Nassim",                 d:"D10",tt:"Freehold", t:"Freehold", p:3850,v:620},
+  {n:"Ardmore Park",               d:"D10",tt:"Freehold", t:"Freehold", p:3450,v:520},
+  {n:"One Holland Village",        d:"D10",tt:"Leasehold",t:"99-year",  p:2650,v:380},
+  {n:"Tanglin Hill",               d:"D10",tt:"Freehold", t:"999-year", p:3200,v:490},
+  {n:"8 Napier",                   d:"D11",tt:"Freehold", t:"Freehold", p:2650,v:410},
+  {n:"Viva",                       d:"D11",tt:"Freehold", t:"Freehold", p:2350,v:360},
+  {n:"The Glyndebourne",           d:"D11",tt:"Freehold", t:"Freehold", p:2250,v:330},
+  {n:"The Tre Ver",                d:"D13",tt:"Leasehold",t:"99-year",  p:1620,v:185},
+  {n:"The Woodleigh Residences",   d:"D13",tt:"Leasehold",t:"99-year",  p:1780,v:215},
+  {n:"Parc Esta",                  d:"D14",tt:"Leasehold",t:"99-year",  p:1560,v:175},
+  {n:"The Antares",                d:"D14",tt:"Leasehold",t:"99-year",  p:1620,v:190},
+  {n:"Amber Park",                 d:"D15",tt:"Freehold", t:"Freehold", p:2250,v:330},
+  {n:"The Meyerise",               d:"D15",tt:"Freehold", t:"Freehold", p:2150,v:310},
+  {n:"Seaside Residences",         d:"D15",tt:"Leasehold",t:"99-year",  p:1830,v:255},
+  {n:"One Amber",                  d:"D15",tt:"Freehold", t:"Freehold", p:1980,v:275},
+  {n:"Grandeur Park Residences",   d:"D16",tt:"Leasehold",t:"99-year",  p:1420,v:165},
+  {n:"Parc Komo",                  d:"D16",tt:"Freehold", t:"Freehold", p:1580,v:195},
+  {n:"Treasure at Tampines",       d:"D18",tt:"Leasehold",t:"99-year",  p:1260,v:135},
+  {n:"Pasir Ris 8",                d:"D18",tt:"Leasehold",t:"99-year",  p:1360,v:155},
+  {n:"Affinity at Serangoon",      d:"D19",tt:"Leasehold",t:"99-year",  p:1420,v:165},
+  {n:"The Florence Residences",    d:"D19",tt:"Leasehold",t:"99-year",  p:1360,v:152},
+  {n:"Kovan Residences",           d:"D19",tt:"Freehold", t:"Freehold", p:1520,v:185},
+  {n:"The Garden Residences",      d:"D20",tt:"Leasehold",t:"99-year",  p:1620,v:195},
+  {n:"Bishan Loft",                d:"D20",tt:"Freehold", t:"Freehold", p:1580,v:185},
+  {n:"The Hillier",                d:"D21",tt:"Leasehold",t:"99-year",  p:1320,v:152},
+  {n:"Lakeville",                  d:"D22",tt:"Leasehold",t:"99-year",  p:1320,v:152},
+  {n:"Hillsta",                    d:"D23",tt:"Leasehold",t:"99-year",  p:1215,v:130},
+  {n:"Bukit 828",                  d:"D23",tt:"Freehold", t:"Freehold", p:1370,v:162},
+  {n:"Parc Botannia",              d:"D25",tt:"Leasehold",t:"99-year",  p:1120,v:120},
+  {n:"North Park Residences",      d:"D27",tt:"Leasehold",t:"99-year",  p:1110,v:118},
+  {n:"Riverfront Residences",      d:"D28",tt:"Leasehold",t:"99-year",  p:1220,v:132},
+];
+const BR_SIZES = {"Studio":[400,540],"1 Bedroom":[500,660],"2 Bedroom":[650,960],"3 Bedroom":[960,1420],"4 Bedroom":[1420,2050],"Penthouse":[2200,5000]};
+const BR_MULT  = {"Studio":1.08,"1 Bedroom":1.05,"2 Bedroom":1.00,"3 Bedroom":0.95,"4 Bedroom":0.90,"Penthouse":1.15};
+const YR_TREND = {2020:1.000,2021:1.050,2022:1.125,2023:1.180,2024:1.230,2025:1.260};
+const BRS      = ["Studio","1 Bedroom","2 Bedroom","3 Bedroom","4 Bedroom","Penthouse"];
+const BRP      = [0.08,0.18,0.40,0.65,0.88,1.00];
+
+function mkRng(s){return()=>{s=(s*9301+49297)%233280;return s/233280;};}
+
+function generateSampleData() {
+  const rng = mkRng(42);
+  const out = [];
+  SAMPLE_PROJECTS.forEach(proj => {
+    const n = Math.floor(rng()*22)+14;
+    for(let i=0;i<n;i++){
+      const r=rng(); const br=BRS[BRP.findIndex(p=>r<p)];
+      const yr=[2020,2021,2022,2023,2024,2025][Math.floor(rng()*6)];
+      const [lo,hi]=BR_SIZES[br];
+      const size=Math.round(lo+rng()*(hi-lo));
+      const psf=Math.round(proj.p*YR_TREND[yr]*BR_MULT[br]*(0.83+rng()*0.34)/10)*10;
+      const txnVal=Math.round(psf*size/10000)*10000;
+      out.push({project:proj.n,district:proj.d,tenureType:proj.tt,tenure:proj.t,
+                bedroomType:br,size,psf,transactionValue:txnVal,year:yr,
+                marketSegment:"",saleType:"",propertyType:"Condominium",floorRange:""});
+    }
+  });
+  return out;
+}
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+const SAMPLE_DATA = generateSampleData();
+let ACTIVE_DATA   = SAMPLE_DATA;
+let IS_REAL       = false;
+let filteredData  = [];
+let curPage       = 1;
+const PAGE_SIZE   = 15;
+let sortCol = 'psf', sortDir = 'desc';
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+const avg  = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0;
+const med  = a => { if(!a.length) return 0; const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; };
+const fmtP = v => '$'+Math.round(v).toLocaleString();
+const fmtM = v => v>=1e6?'$'+(v/1e6).toFixed(2)+'M':'$'+Math.round(v).toLocaleString();
+
+function getYears() { return [...new Set(ACTIVE_DATA.map(x=>x.year))].sort(); }
+
+// ══════════════════════════════════════════════════════
+//  REAL-DATA LOADER
+// ══════════════════════════════════════════════════════
+function tryLoadRealData() {
+  return new Promise(resolve => {
+    if (window.URA_DATA && window.URA_DATA.length) { resolve(true); return; }
+    const s = document.createElement('script');
+    s.src   = 'ura_data.js?' + Date.now(); // bust cache
+    s.onload = () => resolve(!!(window.URA_DATA && window.URA_DATA.length));
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+function retryLoadRealData() {
+  setMsg('info','⏳ Checking for ura_data.js…');
+  tryLoadRealData().then(ok => {
+    if (ok) { activateRealData(window.URA_DATA); closeModal(); }
+    else     setMsg('err','ura_data.js not found in the same folder as this HTML file. Run fetch_ura_data.py first.');
+  });
+}
+
+function activateRealData(data) {
+  ACTIVE_DATA = data;
+  IS_REAL     = true;
+  document.getElementById('src-badge').textContent = `✅ URA Real Data · ${data.length.toLocaleString()} txns`;
+  document.getElementById('src-badge').classList.add('real');
+  const b = document.getElementById('data-banner');
+  b.className = 'data-banner real';
+  const yrs = getYears();
+  b.innerHTML = `✅ Loaded <strong>${data.length.toLocaleString()} real URA transactions</strong> (${Math.min(...yrs)}–${Math.max(...yrs)}) · Bedroom type inferred from floor area.`;
+  // Show URA-only filters
+  document.querySelectorAll('.fg.ura-only').forEach(el => el.classList.add('visible'));
+  document.querySelectorAll('.col-ura').forEach(el => el.style.display = '');
+  initFilters();
+  update();
+}
+
+// ══════════════════════════════════════════════════════
+//  BROWSER FETCH (CORS may block — handled gracefully)
+// ══════════════════════════════════════════════════════
+async function browserFetch() {
+  const key   = document.getElementById('m-key').value.trim();
+  const token = document.getElementById('m-token').value.trim();
+  if (!key || !token) { setMsg('err','Please enter both Access Key and Daily Token.'); return; }
+
+  const btn = document.getElementById('m-fetch-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="progress-ring"></span> Fetching batches 1–4…';
+  setMsg('info','Contacting URA Data Service API…');
+
+  const BASE    = 'https://eservice.ura.gov.sg/uraDataService/invokeUraDS/v1';
+  const headers = { 'AccessKey': key, 'Token': token };
+  const all     = [];
+  const SQM2FT  = 10.7639;
+  const SALE    = {'1':'New Sale','2':'Sub-sale','3':'Resale'};
+  const PROPOK  = new Set(['Condominium','Apartment','Executive Condominium']);
+
+  function areaToRoom(sqm) {
+    const f=sqm*SQM2FT;
+    if(f<=430) return 'Studio';
+    if(f<=650) return '1 Bedroom';
+    if(f<=970) return '2 Bedroom';
+    if(f<=1300)return '3 Bedroom';
+    if(f<=2000)return '4 Bedroom';
+    return 'Penthouse';
+  }
+  function parseTen(s) {
+    if(!s||s.toLowerCase()==='freehold') return ['Freehold','Freehold'];
+    if(s.includes('999')) return ['Leasehold','999-year'];
+    if(s.includes('99'))  return ['Leasehold','99-year'];
+    return ['Leasehold','Leasehold'];
+  }
+  function parseDate(d) {
+    if(!d||d.length!==4) return [null,null];
+    const mm=+d.slice(0,2),yy=+d.slice(2);
+    return (mm>=1&&mm<=12)?[2000+yy,mm]:[null,null];
+  }
+
+  try {
+    for (let b = 1; b <= 4; b++) {
+      setMsg('info', `Fetching batch ${b}/4…`);
+      const r = await fetch(`${BASE}?service=PMI_Resi_Transaction&batch=${b}`, { headers });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (data.Status !== 'Success') throw new Error(data.Message || 'API error');
+
+      for (const proj of data.Result || []) {
+        const name = (proj.project||'').replace(/\b\w/g,c=>c.toUpperCase());
+        const seg  = proj.marketSegment || '';
+        for (const tx of proj.transaction || []) {
+          if (!PROPOK.has(tx.propertyType)) continue;
+          const sqm   = parseFloat(tx.area || 0);
+          const price = parseFloat(tx.price || 0);
+          if (sqm<=0 || price<=0) continue;
+          const sqft  = Math.round(sqm * SQM2FT);
+          const psf   = Math.round(price / sqft);
+          const [yr,mo] = parseDate(tx.contractDate);
+          if (!yr) continue;
+          const [tt,tl] = parseTen(tx.tenure);
+          all.push({
+            project:proj.project?name:'Unknown', district:`D${(tx.district||'00').padStart(2,'0')}`,
+            tenureType:tt, tenure:tl, bedroomType:areaToRoom(sqm),
+            size:sqft, psf, transactionValue:Math.round(price/1000)*1000,
+            year:yr, month:mo, marketSegment:seg, propertyType:tx.propertyType||'',
+            floorRange:tx.floorRange||'', saleType:SALE[tx.typeOfSale]||''
+          });
+        }
+      }
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Fetch from URA API';
+    const isCORS = e.message.includes('Failed to fetch') || e.message.includes('NetworkError');
+    if (isCORS) {
+      setMsg('err', `CORS blocked — browser cannot call URA API directly. Use the Python script instead:\n  python fetch_ura_data.py --key YOUR_KEY --token YOUR_TOKEN`);
+    } else {
+      setMsg('err', `Error: ${e.message}`);
+    }
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Fetch from URA API';
+
+  if (!all.length) { setMsg('err','No records returned. Token may have expired — generate a fresh one.'); return; }
+  setMsg('ok', `✓ Loaded ${all.length.toLocaleString()} transactions.`);
+  window.URA_DATA = all;
+  activateRealData(all);
+  setTimeout(closeModal, 1200);
+}
+
+// ══════════════════════════════════════════════════════
+//  FILTERS — POPULATION
+// ══════════════════════════════════════════════════════
+function initFilters() {
+  // District
+  const ds = document.getElementById('f-district');
+  const curD = ds.value;
+  ds.innerHTML = '<option value="all">All Districts</option>';
+  [...new Set(ACTIVE_DATA.map(x=>x.district))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=o.textContent=v; ds.appendChild(o);
+  });
+  ds.value = curD;
+
+  // Year
+  const ys = document.getElementById('f-year');
+  const curY = ys.value;
+  ys.innerHTML = '<option value="all">All Years</option>';
+  getYears().forEach(y=>{ const o=document.createElement('option'); o.value=o.textContent=y; ys.appendChild(o); });
+  ys.value = curY;
+
+  // Tenure (based on actual data)
+  const ts = document.getElementById('f-tenure');
+  const curT = ts.value;
+  ts.innerHTML = '<option value="all">All Tenures</option>';
+  [...new Set(ACTIVE_DATA.map(x=>x.tenure))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=o.textContent=v; ts.appendChild(o);
+  });
+  ts.value = curT;
+
+  // Project
+  const ps = document.getElementById('f-project');
+  const curP = ps.value;
+  ps.innerHTML = '<option value="all">All Projects</option>';
+  [...new Set(ACTIVE_DATA.map(x=>x.project))].sort().forEach(v=>{
+    const o=document.createElement('option'); o.value=o.textContent=v; ps.appendChild(o);
+  });
+  ps.value = curP;
+}
+
+function getFiltered() {
+  const d   = document.getElementById('f-district').value;
+  const br  = document.getElementById('f-bedroom').value;
+  const yr  = document.getElementById('f-year').value;
+  const tt  = document.getElementById('f-tenure-type').value;
+  const t   = document.getElementById('f-tenure').value;
+  const seg = document.getElementById('f-segment').value;
+  const st  = document.getElementById('f-saletype').value;
+  const pt  = document.getElementById('f-proptype').value;
+  const pj  = document.getElementById('f-project').value;
+  return ACTIVE_DATA.filter(x =>
+    (d==='all'||x.district===d) && (br==='all'||x.bedroomType===br) &&
+    (yr==='all'||x.year===+yr)  && (tt==='all'||x.tenureType===tt)  &&
+    (t==='all'||x.tenure===t)   && (seg==='all'||x.marketSegment===seg) &&
+    (st==='all'||x.saleType===st) && (pt==='all'||x.propertyType===pt) &&
+    (pj==='all'||x.project===pj)
+  );
+}
+
+// ══════════════════════════════════════════════════════
+//  KPIs
+// ══════════════════════════════════════════════════════
+function updateKPIs(data) {
+  const psfs = data.map(x=>x.psf);
+  const txns = data.map(x=>x.transactionValue);
+  const prjs = new Set(data.map(x=>x.project));
+
+  document.getElementById('kv-psf').textContent = psfs.length ? fmtP(avg(psfs)) : '—';
+  document.getElementById('kv-med').textContent = psfs.length ? fmtP(med(psfs)) : '—';
+  document.getElementById('kv-txn').textContent = txns.length ? fmtM(avg(txns)) : '—';
+  document.getElementById('kv-cnt').textContent = data.length.toLocaleString();
+  document.getElementById('kv-prj').textContent = prjs.size.toLocaleString();
+
+  document.getElementById('ks-psf').textContent = psfs.length ? `Range ${fmtP(Math.min(...psfs))} – ${fmtP(Math.max(...psfs))}` : 'per sq ft';
+  document.getElementById('ks-med').textContent = psfs.length ? `P25 ${fmtP(med([...psfs].sort((a,b)=>a-b).slice(0,psfs.length>>1)))} · P75 ${fmtP(med([...psfs].sort((a,b)=>a-b).slice(psfs.length>>1)))}` : '50th percentile';
+  document.getElementById('ks-txn').textContent = txns.length ? `Range ${fmtM(Math.min(...txns))} – ${fmtM(Math.max(...txns))}` : 'per unit';
+  document.getElementById('ks-cnt').textContent = `${[...new Set(data.map(x=>x.district))].length} districts`;
+  document.getElementById('ks-prj').textContent = 'unique developments';
+}
+
+// ══════════════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════════════
+const CH = {};
+const GRID = '#eff1f5', TF = {size:11};
+const dColor = v => v>=2800?'#C0392B':v>=1800?'#2c4a8c':v>=1400?'#0891b2':'#16a34a';
+function kill(id){if(CH[id]){CH[id].destroy();delete CH[id];}}
+
+function chartDistrict(data) {
+  kill('d'); const ctx=document.getElementById('c-district').getContext('2d');
+  const m={};
+  data.forEach(x=>{(m[x.district]=m[x.district]||[]).push(x.psf);});
+  const L=Object.keys(m).sort(), V=L.map(k=>Math.round(avg(m[k])));
+  CH.d=new Chart(ctx,{type:'bar',data:{labels:L,datasets:[{data:V,backgroundColor:V.map(dColor),borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` $${c.raw.toLocaleString()} PSF`}}},
+      scales:{x:{grid:{display:false},ticks:{font:TF}},y:{grid:{color:GRID},ticks:{font:TF,callback:v=>'$'+v.toLocaleString()}}}}});
+}
+
+function chartTrend(data) {
+  kill('t'); const ctx=document.getElementById('c-trend').getContext('2d');
+  const brs=['1 Bedroom','2 Bedroom','3 Bedroom','4 Bedroom'];
+  const cols=['#2c4a8c','#C0392B','#16a34a','#d97706'];
+  const yrs=getYears();
+  CH.t=new Chart(ctx,{type:'line',
+    data:{labels:yrs,datasets:brs.map((br,i)=>({
+      label:br,borderColor:cols[i],backgroundColor:cols[i]+'22',tension:.4,fill:false,
+      pointRadius:4,pointHoverRadius:6,borderWidth:2,spanGaps:true,
+      data:yrs.map(y=>{const f=data.filter(x=>x.bedroomType===br&&x.year===y);return f.length?Math.round(avg(f.map(x=>x.psf))):null;})
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw?'$'+c.raw.toLocaleString()+' PSF':'N/A'}`}}},
+      scales:{x:{grid:{display:false},ticks:{font:TF}},y:{grid:{color:GRID},ticks:{font:TF,callback:v=>'$'+v.toLocaleString()}}}}});
+}
+
+function chartBedroom(data) {
+  kill('b'); const ctx=document.getElementById('c-bedroom').getContext('2d');
+  const fh=BRS.map(br=>{const f=data.filter(x=>x.bedroomType===br&&x.tenureType==='Freehold');return f.length?Math.round(avg(f.map(x=>x.psf))):0;});
+  const lh=BRS.map(br=>{const f=data.filter(x=>x.bedroomType===br&&x.tenureType==='Leasehold');return f.length?Math.round(avg(f.map(x=>x.psf))):0;});
+  CH.b=new Chart(ctx,{type:'bar',data:{labels:BRS,datasets:[
+    {label:'Freehold',data:fh,backgroundColor:'#16a34a',borderRadius:4,borderSkipped:false},
+    {label:'Leasehold',data:lh,backgroundColor:'#2c4a8c',borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: $${c.raw.toLocaleString()} PSF`}}},
+      scales:{x:{grid:{display:false},ticks:{font:TF}},y:{grid:{color:GRID},ticks:{font:TF,callback:v=>'$'+v.toLocaleString()}}}}});
+}
+
+function chartTenure(data) {
+  kill('ten'); const ctx=document.getElementById('c-tenure').getContext('2d');
+  const g={};
+  data.forEach(x=>{g[x.tenure]=(g[x.tenure]||0)+1;});
+  const order=['Freehold','999-year','99-year','Leasehold'];
+  const L=order.filter(k=>g[k]), V=L.map(k=>g[k]);
+  CH.ten=new Chart(ctx,{type:'doughnut',data:{labels:L,datasets:[{data:V,backgroundColor:['#16a34a','#0891b2','#2c4a8c','#d97706'].slice(0,L.length),borderWidth:3,borderColor:'#fff',hoverOffset:8}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:12,usePointStyle:true}},
+        tooltip:{callbacks:{label:c=>{const tot=c.dataset.data.reduce((a,b)=>a+b,0);return ' '+c.label+': '+c.raw.toLocaleString()+' ('+((c.raw/tot)*100).toFixed(1)+'%)';}}}}}});
+}
+
+function chartTxnVal(data) {
+  kill('tv'); const ctx=document.getElementById('c-txnval').getContext('2d');
+  const fh=BRS.map(br=>{const f=data.filter(x=>x.bedroomType===br&&x.tenureType==='Freehold');return f.length?Math.round(avg(f.map(x=>x.transactionValue))/1000)*1000:0;});
+  const lh=BRS.map(br=>{const f=data.filter(x=>x.bedroomType===br&&x.tenureType==='Leasehold');return f.length?Math.round(avg(f.map(x=>x.transactionValue))/1000)*1000:0;});
+  CH.tv=new Chart(ctx,{type:'bar',data:{labels:BRS,datasets:[
+    {label:'Freehold',data:fh,backgroundColor:'#d97706',borderRadius:4,borderSkipped:false},
+    {label:'Leasehold',data:lh,backgroundColor:'#0891b2',borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fmtM(c.raw)}`}}},
+      scales:{x:{grid:{display:false},ticks:{font:TF}},y:{grid:{color:GRID},ticks:{font:TF,callback:v=>fmtM(v)}}}}});
+}
+
+function chartFHLH(data) {
+  kill('fh'); const ctx=document.getElementById('c-fhlh').getContext('2d');
+  const yrs=getYears();
+  CH.fh=new Chart(ctx,{type:'line',data:{labels:yrs,datasets:[
+    {label:'Freehold', borderColor:'#16a34a',backgroundColor:'#16a34a22',tension:.4,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2.5,spanGaps:true,
+     data:yrs.map(y=>{const f=data.filter(x=>x.tenureType==='Freehold'&&x.year===y);return f.length?Math.round(avg(f.map(x=>x.psf))):null;})},
+    {label:'Leasehold',borderColor:'#2c4a8c',backgroundColor:'#2c4a8c22',tension:.4,fill:false,pointRadius:4,pointHoverRadius:6,borderWidth:2.5,spanGaps:true,
+     data:yrs.map(y=>{const f=data.filter(x=>x.tenureType==='Leasehold'&&x.year===y);return f.length?Math.round(avg(f.map(x=>x.psf))):null;})}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw?'$'+c.raw.toLocaleString()+' PSF':'N/A'}`}}},
+      scales:{x:{grid:{display:false},ticks:{font:TF}},y:{grid:{color:GRID},ticks:{font:TF,callback:v=>'$'+v.toLocaleString()}}}}});
+}
+
+function chartProjects(data) {
+  kill('p'); const ctx=document.getElementById('c-projects').getContext('2d');
+  const m={};
+  data.forEach(x=>{(m[x.project]=m[x.project]||[]).push(x.psf);});
+  const sorted=Object.entries(m).map(([n,a])=>({n,v:Math.round(avg(a))})).sort((a,b)=>b.v-a.v).slice(0,15);
+  CH.p=new Chart(ctx,{type:'bar',data:{labels:sorted.map(x=>x.n),datasets:[{data:sorted.map(x=>x.v),backgroundColor:sorted.map(x=>dColor(x.v)),borderRadius:4,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` $${c.raw.toLocaleString()} PSF`}}},
+      scales:{x:{grid:{color:GRID},ticks:{font:TF,callback:v=>'$'+v.toLocaleString()}},y:{grid:{display:false},ticks:{font:TF}}}}});
+}
+
+// ══════════════════════════════════════════════════════
+//  TABLE
+// ══════════════════════════════════════════════════════
+const COL = {project:'Project',district:'District',bedroomType:'Bedroom',size:'Size (sqft)',
+             psf:'PSF ($)',transactionValue:'Txn Value',tenureType:'Tenure Type',
+             tenure:'Tenure',year:'Year',marketSegment:'Segment',saleType:'Sale Type',floorRange:'Floor'};
+
+function sortData(data){
+  return [...data].sort((a,b)=>{
+    let va=a[sortCol],vb=b[sortCol];
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return va<vb?(sortDir==='asc'?-1:1):va>vb?(sortDir==='asc'?1:-1):0;
+  });
+}
+
+function renderTable(data) {
+  const sorted=sortData(data);
+  const start=(curPage-1)*PAGE_SIZE;
+  const page=sorted.slice(start,start+PAGE_SIZE);
+  const tbody=document.getElementById('tbl-body');
+  tbody.innerHTML='';
+  document.getElementById('tbl-meta').textContent=`${data.length.toLocaleString()} transactions`;
+
+  if(!page.length){
+    tbody.innerHTML='<tr><td colspan="12" class="no-data">No transactions match the selected filters.</td></tr>';
+    document.getElementById('pag-info').textContent='';
+    document.getElementById('pag-btns').innerHTML='';
+    return;
+  }
+
+  const segBadge = s => s==='CCR'?'b-ccr':s==='RCR'?'b-rcr':'b-ocr';
+  const stBadge  = s => s==='New Sale'?'b-ns':s==='Sub-sale'?'b-ss':'b-re';
+
+  page.forEach(t => {
+    const tr=document.createElement('tr');
+    const tenBadge=t.tenureType==='Freehold'?(t.tenure==='999-year'?'b-999':'b-fh'):'b-lh';
+    tr.innerHTML=`
+      <td class="bld">${t.project}</td>
+      <td>${t.district}</td>
+      <td>${t.bedroomType}</td>
+      <td>${t.size.toLocaleString()}</td>
+      <td class="bld">${fmtP(t.psf)}</td>
+      <td>${fmtM(t.transactionValue)}</td>
+      <td><span class="badge ${t.tenureType==='Freehold'?'b-fh':'b-lh'}">${t.tenureType}</span></td>
+      <td><span class="badge ${tenBadge}">${t.tenure}</span></td>
+      <td>${t.year}</td>
+      <td class="col-ura" style="${IS_REAL?'':'display:none'}">${t.marketSegment?`<span class="badge ${segBadge(t.marketSegment)}">${t.marketSegment}</span>`:''}</td>
+      <td class="col-ura" style="${IS_REAL?'':'display:none'}">${t.saleType?`<span class="badge ${stBadge(t.saleType)}">${t.saleType}</span>`:''}</td>
+      <td class="col-ura" style="${IS_REAL?'':'display:none'}">${t.floorRange||''}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const total=data.length, pages=Math.ceil(total/PAGE_SIZE);
+  document.getElementById('pag-info').textContent=`Showing ${start+1}–${Math.min(start+PAGE_SIZE,total)} of ${total.toLocaleString()}`;
+  renderPag(pages);
+}
+
+function renderPag(total){
+  const el=document.getElementById('pag-btns'); el.innerHTML='';
+  const add=(label,pg,dis,act)=>{
+    const b=document.createElement('button');
+    b.className='pb'+(act?' active':''); b.textContent=label; b.disabled=dis;
+    b.onclick=()=>{curPage=pg;renderTable(filteredData);}; el.appendChild(b);
+  };
+  add('‹',curPage-1,curPage===1,false);
+  let lo=Math.max(1,curPage-2),hi=Math.min(total,lo+4); lo=Math.max(1,hi-4);
+  for(let i=lo;i<=hi;i++) add(i,i,false,i===curPage);
+  add('›',curPage+1,curPage===total,false);
+}
+
+document.querySelectorAll('thead th[data-col]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const c=th.dataset.col;
+    sortDir=(sortCol===c&&sortDir==='desc')?'asc':'desc'; sortCol=c;
+    document.querySelectorAll('thead th[data-col]').forEach(h=>{
+      h.textContent=COL[h.dataset.col]+(h.dataset.col===sortCol?(sortDir==='asc'?' ↑':' ↓'):'');
+      h.classList.toggle('sorted',h.dataset.col===sortCol);
+    });
+    curPage=1; renderTable(filteredData);
+  });
+});
+
+// ══════════════════════════════════════════════════════
+//  MAIN UPDATE
+// ══════════════════════════════════════════════════════
+function update() {
+  filteredData=getFiltered(); curPage=1;
+  updateKPIs(filteredData);
+  chartDistrict(filteredData); chartTrend(filteredData); chartBedroom(filteredData);
+  chartTenure(filteredData);   chartTxnVal(filteredData); chartFHLH(filteredData);
+  chartProjects(filteredData); renderTable(filteredData);
+}
+
+// ══════════════════════════════════════════════════════
+//  MODAL HELPERS
+// ══════════════════════════════════════════════════════
+function openModal()  { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function setMsg(type,txt){
+  const el=document.getElementById('m-msg');
+  el.className='modal-msg '+type;
+  el.style.whiteSpace='pre-wrap';
+  el.textContent=txt;
+}
+document.getElementById('modal').addEventListener('click', e=>{
+  if(e.target===document.getElementById('modal')) closeModal();
+});
+
+// ══════════════════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════════════════
+['f-district','f-bedroom','f-year','f-tenure-type','f-tenure','f-segment','f-saletype','f-proptype','f-project'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{curPage=1;update();});
+});
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  ['f-district','f-bedroom','f-year','f-tenure-type','f-tenure','f-segment','f-saletype','f-proptype','f-project']
+    .forEach(id=>{document.getElementById(id).value='all';});
+  update();
+});
+document.getElementById('btn-connect').addEventListener('click', openModal);
+
+// ══════════════════════════════════════════════════════
+//  INIT — try to auto-detect ura_data.js
+// ══════════════════════════════════════════════════════
+(async function init() {
+  initFilters();
+  update(); // start with sample data immediately
+
+  // Try to load real data in background
+  const banner=document.getElementById('data-banner');
+  banner.className='data-banner loading';
+  banner.innerHTML='⏳ Checking for <strong>ura_data.js</strong>…';
+
+  const ok = await tryLoadRealData();
+  if (ok) {
+    activateRealData(window.URA_DATA);
+  } else {
+    banner.className='data-banner sample';
+    banner.innerHTML='⚠️ Displaying <strong>synthetic sample data</strong>. <span class="banner-link" onclick="openModal()">Connect to URA API or run fetch_ura_data.py to load real transactions →</span>';
+  }
+})();
+</script>
+</body>
+</html>

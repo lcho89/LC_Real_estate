@@ -1,0 +1,2399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Gap Analysis — Singapore Condos</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #C0392B; --dark: #1a2744; --blue: #2c4a8c;
+      --lblue: #e8eef7; --bg: #f0f2f6; --card: #fff;
+      --text: #1a2744; --muted: #5a6a8a; --border: #dde3ee;
+      --green: #16a34a; --orange: #d97706; --teal: #0891b2;
+    }
+    body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); }
+
+    /* ── HEADER ── */
+    .header { background:linear-gradient(135deg,#1a2744,#2c4a8c); color:#fff; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .header h1 { font-size:19px; font-weight:700; }
+    .header p  { font-size:11px; opacity:.65; margin-top:2px; }
+    .hbadges   { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .hbadge    { background:rgba(255,255,255,.13); border:1px solid rgba(255,255,255,.22); padding:4px 11px; border-radius:20px; font-size:11px; font-weight:500; }
+    .hbadge.real { background:rgba(22,163,74,.25); border-color:rgba(22,163,74,.5); }
+    .btn-connect { background:rgba(255,255,255,.15); border:1.5px solid rgba(255,255,255,.35); color:#fff; padding:6px 13px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+    .btn-connect:hover { background:rgba(255,255,255,.25); }
+
+    /* ── DATA BANNER ── */
+    .data-banner { padding:8px 28px; font-size:12px; display:flex; align-items:center; gap:10px; }
+    .data-banner.error   { background:#fee2e2; color:#991b1b; border-bottom:1px solid #fecaca; }
+    .data-banner.real    { background:#f0fdf4; color:#166534; border-bottom:1px solid #bbf7d0; }
+    .data-banner.loading { background:#eff6ff; color:#1e40af; border-bottom:1px solid #bfdbfe; }
+
+    /* ── MAIN ── */
+    .main { max-width:1600px; margin:0 auto; padding:20px 26px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title { font-size:16px; font-weight:800; color:var(--text); margin:22px 0 13px; padding-bottom:8px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .section-title span.pill { background:var(--lblue); color:var(--blue); font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.5px; }
+
+    /* ── FILTERS ── */
+    .filters-card { background:var(--card); border-radius:12px; padding:13px 18px; box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+    .fg { display:flex; flex-direction:column; gap:3px; min-width:120px; }
+    .fg label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+    .fg select { padding:6px 24px 6px 9px; border:1.5px solid var(--border); border-radius:7px; font-size:12.5px; color:var(--text); background:#fff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 5px center/14px; appearance:none; transition:border-color .15s; }
+    .fg select:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+    .btn-reset { padding:6px 13px; background:var(--bg); border:1.5px solid var(--border); border-radius:7px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; align-self:flex-end; }
+    .btn-reset:hover { background:var(--border); color:var(--text); }
+
+    /* ── KPI ── */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin-bottom:16px; }
+    .kpi { background:var(--card); border-radius:12px; padding:15px 17px; box-shadow:0 1px 4px rgba(0,0,0,.07); border-top:3px solid transparent; transition:transform .15s,box-shadow .15s; }
+    .kpi:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1); }
+    .kpi:nth-child(1){border-top-color:var(--red);}
+    .kpi:nth-child(2){border-top-color:var(--blue);}
+    .kpi:nth-child(3){border-top-color:var(--green);}
+    .kpi:nth-child(4){border-top-color:var(--orange);}
+    .kpi-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+    .kpi-value { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-.4px; }
+    .kpi-sub   { font-size:10.5px; color:var(--muted); margin-top:3px; }
+
+    /* ── CHART GRID ── */
+    .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:13px; }
+    .cc { background:var(--card); border-radius:12px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:13px; }
+    .cc.no-mb { margin-bottom:0; }
+    .ct { font-size:13px; font-weight:700; color:var(--text); }
+    .cs { font-size:11px; color:var(--muted); margin-bottom:12px; margin-top:2px; }
+
+    /* ── SPARSE WARNING ── */
+    .sparse-warning { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:6px; padding:5px 10px; font-size:11px; margin-bottom:8px; display:none; }
+    .sparse-warning.show { display:block; }
+
+    /* ── TABLE ── */
+    .table-card { background:var(--card); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.07); overflow:hidden; margin-bottom:13px; }
+    .table-hdr { padding:13px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+    .table-hdr h3 { font-size:13px; font-weight:700; }
+    .table-meta { font-size:11px; color:var(--muted); }
+    .table-scroll { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    thead th { background:#f8f9fc; padding:8px 12px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+    thead th:hover  { background:var(--lblue); color:var(--blue); }
+    thead th.sorted { background:var(--lblue); color:var(--blue); }
+    tbody td { padding:8px 12px; border-bottom:1px solid #f0f2f6; white-space:nowrap; }
+    tbody tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:#f6f8fc; }
+    .bld { font-weight:700; }
+    .badge { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; }
+    .b-ccr { background:#fdf2f8; color:#9d174d; }
+    .b-rcr { background:#fff7ed; color:#c2410c; }
+    .b-ocr { background:#eff6ff; color:#1d4ed8; }
+    .gap-pos { color:#16a34a; font-weight:700; }   /* resale cheaper = good value */
+    .gap-neg { color:#C0392B; font-weight:700; }   /* resale more expensive */
+    .no-data { text-align:center; padding:36px; color:var(--muted); font-size:13px; }
+    .n-badge { background:#f1f5f9; color:#64748b; font-size:10px; padding:1px 5px; border-radius:3px; font-weight:600; }
+
+    /* ── LEASE CALCULATOR ── */
+    .calc-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:13px; }
+    .calc-card { background:var(--card); border-radius:12px; padding:20px 22px; box-shadow:0 1px 4px rgba(0,0,0,.07); }
+    .calc-card h3 { font-size:13px; font-weight:700; margin-bottom:14px; color:var(--text); }
+    .calc-inputs { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ci { display:flex; flex-direction:column; gap:4px; }
+    .ci label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+    .ci select, .ci input { padding:7px 10px; border:1.5px solid var(--border); border-radius:7px; font-size:13px; color:var(--text); background:#fff; transition:border-color .15s; }
+    .ci input[type=range] { padding:6px 0; border:none; background:transparent; cursor:pointer; accent-color:var(--blue); }
+    .ci select:focus, .ci input[type=number]:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+    .lease-display { font-size:22px; font-weight:800; color:var(--blue); text-align:center; padding:6px 0 2px; }
+    .lease-display-sub { font-size:10px; color:var(--muted); text-align:center; }
+    .lease-slider-row { display:flex; flex-direction:column; gap:2px; }
+
+    /* ── RESULTS ── */
+    .results-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    @media(max-width:768px){.results-grid{grid-template-columns:repeat(2,1fr)}}
+    .result-box { background:var(--bg); border-radius:10px; padding:12px 14px; border-left:3px solid var(--border); }
+    .result-box.highlight { background:var(--lblue); border-left-color:var(--blue); }
+    .result-box.good { background:#f0fdf4; border-left-color:var(--green); }
+    .result-box.warn { background:#fff7ed; border-left-color:var(--orange); }
+    .result-box.bad  { background:#fef2f2; border-left-color:var(--red); }
+    .rb-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:5px; }
+    .rb-value { font-size:20px; font-weight:800; color:var(--text); }
+    .rb-sub   { font-size:10px; color:var(--muted); margin-top:2px; }
+
+    /* ── SCORE BAR ── */
+    .score-wrap { margin-top:12px; }
+    .score-bar-bg { background:#e2e8f0; border-radius:6px; height:10px; overflow:hidden; }
+    .score-bar-fill { height:100%; border-radius:6px; transition:width .5s ease; }
+    .score-label { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-top:3px; }
+    .score-verdict { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; margin-top:4px; }
+    .sv-good { background:#dcfce7; color:#15803d; }
+    .sv-fair { background:#fff7ed; color:#c2410c; }
+    .sv-caution { background:#fee2e2; color:#991b1b; }
+    .sparse-note { font-size:11px; color:var(--orange); margin-top:6px; font-style:italic; }
+
+    /* ── PROGRESS RING ── */
+    .progress-ring { display:inline-block; width:14px; height:14px; border:2px solid rgba(30,64,175,.25); border-top-color:#1e40af; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── NO DATA STATE ── */
+    .no-data-state { background:var(--card); border-radius:12px; padding:48px 28px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:16px; }
+    .no-data-state h2 { font-size:18px; font-weight:800; color:var(--text); margin-bottom:8px; }
+    .no-data-state p { font-size:13px; color:var(--muted); margin-bottom:16px; line-height:1.6; }
+    .no-data-state a { color:var(--blue); font-weight:700; }
+
+    /* ── FOOTER ── */
+    .footer { text-align:center; padding:14px; font-size:11px; color:var(--muted); }
+
+    @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.charts-row{grid-template-columns:1fr}.calc-grid{grid-template-columns:1fr}.main{padding:14px}}
+    @media(max-width:768px){.calc-inputs{grid-template-columns:1fr}.results-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.header{flex-direction:column;gap:8px}.results-grid{grid-template-columns:1fr}}
+
+    /* ── TABS ── */
+    .tab-strip{display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--border);}
+    .tab-btn{padding:8px 18px;border:none;background:transparent;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;}
+    .tab-btn:hover{color:var(--text);}
+    .tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);}
+
+    /* ── MULTI-PROJECT TAGS ── */
+    .mp-tag{display:inline-flex;align-items:center;gap:5px;background:var(--lblue);color:var(--blue);border-radius:12px;padding:3px 10px;font-size:11px;font-weight:600;}
+    .mp-tag button{border:none;background:none;color:var(--blue);cursor:pointer;font-size:13px;line-height:1;padding:0;}
+    .mp-tag button:hover{color:var(--red);}
+    .mp-add-input{flex:1;padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;color:var(--text);}
+    .mp-add-input:focus{outline:none;border-color:var(--blue);}
+    .btn-add{padding:6px 13px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-add:hover{background:#1a3570;}
+
+    /* ── HIGHLIGHTED COMP / WF ROWS ── */
+    .comps-subject-row td{background:var(--lblue)!important;font-weight:700;}
+    .wf-highlight-row td{background:var(--lblue)!important;font-weight:700;color:var(--blue);}
+
+    /* ── MINI SCORE BAR ── */
+    .mini-score-bg{display:inline-block;width:60px;height:7px;background:var(--border);border-radius:4px;vertical-align:middle;margin-left:5px;}
+    .mini-score-fill{display:block;height:7px;border-radius:4px;}
+
+    /* ── EMPTY PLACEHOLDER ── */
+    .empty-placeholder{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;}
+
+    /* ── HARMONIZATION BADGE ── */
+    .h-badge { background:#dbeafe; color:#1e40af; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:600; }
+    .est-badge { background:#fef3c7; color:#92400e; font-size:9px; padding:1px 5px; border-radius:3px; font-weight:600; }
+    #f-project-input { padding:6px 9px; border:1.5px solid var(--border); border-radius:7px; font-size:12.5px; color:var(--text); background:#fff; transition:border-color .15s; }
+    #f-project-input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <span style="font-size:28px">📉</span>
+    <div>
+      <h1>Price Gap Analysis</h1>
+      <p>New Launch vs Resale · Lease Decay Calculator · District Comparison · 2020–2026</p>
+    </div>
+  </div>
+  <div class="hbadges">
+    <span class="hbadge" id="src-badge">⏳ Loading…</span>
+    <a href="sg-condo-dashboard.html" class="btn-connect">← Main Dashboard</a>
+  </div>
+</header>
+
+<!-- DATA BANNER -->
+<div class="data-banner loading" id="data-banner">
+  <span class="progress-ring"></span> Loading URA transaction data…
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main-content" style="display:none">
+
+  <!-- ═══════════════════════════════════════
+       SECTION A: PRICE GAP ANALYSIS
+  ═══════════════════════════════════════ -->
+  <div class="section-title">
+    📊 Price Gap Analysis
+    <span class="pill">New Launch vs Resale</span>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters-card">
+    <div class="fg">
+      <label>District</label>
+      <select id="f-district"><option value="all">All Districts</option></select>
+    </div>
+    <div class="fg">
+      <label>Bedroom Type</label>
+      <select id="f-bedroom">
+        <option value="all">All Types</option>
+        <option value="Studio">Studio</option>
+        <option value="1-Bedroom">1-Bedroom</option>
+        <option value="2-Bedroom">2-Bedroom</option>
+        <option value="3-Bedroom">3-Bedroom</option>
+        <option value="4-Bedroom">4-Bedroom</option>
+        <option value="5-Bedroom">5-Bedroom</option>
+        <option value="Penthouse">Penthouse</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Size Range (sqft)</label>
+      <select id="f-size">
+        <option value="all">All Sizes</option>
+        <option value="lt500">&lt; 500 sqft</option>
+        <option value="500to800">500 – 800 sqft</option>
+        <option value="800to1100">800 – 1,100 sqft</option>
+        <option value="1100to1500">1,100 – 1,500 sqft</option>
+        <option value="gt1500">&gt; 1,500 sqft</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Year</label>
+      <select id="f-year"><option value="all">All Years</option></select>
+    </div>
+    <div class="fg">
+      <label>Market Segment</label>
+      <select id="f-segment">
+        <option value="all">All Segments</option>
+        <option value="CCR">CCR</option>
+        <option value="RCR">RCR</option>
+        <option value="OCR">OCR</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Resale Age Bracket</label>
+      <select id="f-age">
+        <option value="all">All Resale Ages</option>
+        <option value="1to3">1–3 yrs (launched 2023–2025)</option>
+        <option value="4to5">4–5 yrs (launched 2021–2022)</option>
+        <option value="pre2021">Pre-2021 (older projects)</option>
+      </select>
+    </div>
+    <div class="fg" style="min-width:220px">
+      <label>Project <span id="f-project-count" class="n-badge"></span></label>
+      <input type="text" id="f-project-input" list="f-project-datalist"
+             placeholder="Type to search projects…" style="width:100%">
+      <datalist id="f-project-datalist"></datalist>
+      <select id="f-project" style="display:none"><option value="all">All Projects</option></select>
+    </div>
+    <button class="btn-reset" id="btn-reset">↺ Reset</button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Avg New Launch PSF</div>
+      <div class="kpi-value" id="kv-nl">—</div>
+      <div class="kpi-sub" id="ks-nl">new sale transactions</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Resale PSF</div>
+      <div class="kpi-value" id="kv-rs">—</div>
+      <div class="kpi-sub" id="ks-rs">resale transactions</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Gap (Resale vs NL)</div>
+      <div class="kpi-value" id="kv-gap">—</div>
+      <div class="kpi-sub" id="ks-gap">across districts with data</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Districts Analyzed</div>
+      <div class="kpi-value" id="kv-dist">—</div>
+      <div class="kpi-sub" id="ks-dist">with sufficient data</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="charts-row">
+    <div class="cc no-mb">
+      <div class="ct">New Launch vs Resale PSF by District</div>
+      <div class="cs">Average PSF comparison — top districts by transaction volume</div>
+      <div class="sparse-warning" id="sw-bar"></div>
+      <div style="position:relative;height:280px"><canvas id="c-gap-bar"></canvas></div>
+    </div>
+    <div class="cc no-mb">
+      <div class="ct">PSF by Project Age Bracket</div>
+      <div class="cs">How resale PSF compares to new launch PSF across age groups — real market data decay curve</div>
+      <div style="position:relative;height:280px"><canvas id="c-gap-trend"></canvas></div>
+    </div>
+  </div>
+
+  <!-- GAP TABLE -->
+  <div class="table-card">
+    <div class="table-hdr">
+      <h3>Gap Analysis by District</h3>
+      <span class="table-meta" id="gap-table-meta">—</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortGap('district')">District <span id="gh-district"></span></th>
+            <th onclick="sortGap('marketSegment')">Segment <span id="gh-marketSegment"></span></th>
+            <th>Resale Age</th>
+            <th onclick="sortGap('newLaunchPsf')">New Launch PSF <span id="gh-newLaunchPsf"></span></th>
+            <th onclick="sortGap('resalePsf')">Resale PSF <span id="gh-resalePsf"></span></th>
+            <th onclick="sortGap('gapAbs')">Gap $ <span id="gh-gapAbs"></span></th>
+            <th onclick="sortGap('gapPct')">Gap % <span id="gh-gapPct">▼</span></th>
+            <th onclick="sortGap('newCount')">NL Txns <span id="gh-newCount"></span></th>
+            <th onclick="sortGap('resaleCount')">Resale Txns <span id="gh-resaleCount"></span></th>
+          </tr>
+        </thead>
+        <tbody id="gap-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SECTION B: PROJECT COMPARISON
+  ═══════════════════════════════════════ -->
+  <div class="section-title">
+    🏢 Project Comparison
+    <span class="pill">Comps &amp; Side-by-Side</span>
+  </div>
+
+  <!-- Tab strip -->
+  <div class="tab-strip" id="comp-tabs">
+    <button class="tab-btn active" data-tab="comps">🔍 Comps Finder</button>
+    <button class="tab-btn" data-tab="multi">⚖️ Multi-Project Compare</button>
+  </div>
+
+  <!-- ── B1: COMPS FINDER ── -->
+  <div class="tab-panel" id="tab-comps">
+    <div class="cc empty-placeholder" id="comps-prompt-card">
+      <div style="font-size:32px;margin-bottom:8px">🏘️</div>
+      <p>Select a project in the <strong>Project</strong> filter above to find comparable projects in the same district.</p>
+    </div>
+    <div id="comps-results" style="display:none">
+      <div class="filters-card" style="margin-bottom:12px;align-items:center">
+        <div style="font-size:12.5px;color:var(--text)">
+          Comps for: <strong id="comps-subject-name">—</strong>
+          <span class="n-badge" id="comps-subject-meta" style="margin-left:6px"></span>
+        </div>
+        <button class="btn-reset" id="btn-find-comps" style="margin-left:auto">🔄 Refresh Comps</button>
+      </div>
+      <div class="table-card">
+        <div class="table-hdr">
+          <h3>Comparable Projects</h3>
+          <span class="table-meta" id="comps-table-meta">—</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Project</th><th>Age</th><th>Tenure</th>
+              <th>Avg PSF</th><th>NL PSF</th><th>Resale PSF</th>
+              <th>Gap vs NL</th><th>Avg Size</th><th>Txns</th><th>Est. Rem. Lease</th>
+            </tr></thead>
+            <tbody id="comps-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── B2: MULTI-PROJECT COMPARE ── -->
+  <div class="tab-panel" id="tab-multi" style="display:none">
+    <div class="filters-card">
+      <div class="fg" style="min-width:260px">
+        <label>Add Project (type to search)</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="mp-search" list="mp-datalist" class="mp-add-input"
+                 placeholder="Start typing project name…">
+          <datalist id="mp-datalist"></datalist>
+          <button class="btn-add" id="btn-mp-add">+ Add</button>
+        </div>
+      </div>
+      <div id="mp-tags" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:1;min-height:30px"></div>
+      <button class="btn-reset" id="btn-mp-clear" style="margin-left:auto">✕ Clear All</button>
+    </div>
+    <div id="mp-empty" class="cc empty-placeholder">
+      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      <p>Add up to <strong>6 projects</strong> to compare side-by-side.<br>
+      Try: Affinity at Serangoon, Hundred Palms Residences, Garden Residences…</p>
+    </div>
+    <div id="mp-content" style="display:none">
+      <div class="charts-row">
+        <div class="cc no-mb">
+          <div class="ct">PSF Comparison</div>
+          <div class="cs">New Launch PSF vs Resale PSF per selected project</div>
+          <div style="position:relative;height:280px"><canvas id="c-mp-bar"></canvas></div>
+        </div>
+        <div class="cc no-mb">
+          <div class="ct">Value Score Comparison</div>
+          <div class="cs">Composite score (0–100) · lease health + price discount + CPF liquidity</div>
+          <div style="position:relative;height:280px"><canvas id="c-mp-score"></canvas></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-hdr">
+          <h3>Multi-Project Comparison Table</h3>
+          <span class="table-meta" id="mp-table-meta">—</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Project</th><th>Avg PSF</th><th>NL PSF</th><th>Resale PSF</th>
+              <th>Gap %</th><th>Fair Value PSF</th><th>Value Delta</th>
+              <th>Age</th><th>Txns</th>
+              <th>Est. Rem. Lease</th><th>Value Score</th>
+            </tr></thead>
+            <tbody id="mp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SECTION C: HYPOTHETICAL NEW LAUNCH
+  ═══════════════════════════════════════ -->
+  <div class="section-title">
+    🔮 Hypothetical New Launch
+    <span class="pill">What-If Calculator</span>
+  </div>
+
+  <div class="calc-grid">
+    <!-- Inputs -->
+    <div class="calc-card">
+      <h3>Define Hypothetical Project</h3>
+      <div class="calc-inputs">
+        <div class="ci">
+          <label>District</label>
+          <select id="wf-district" onchange="updateWhatIf()"><option value="all">All Districts</option></select>
+        </div>
+        <div class="ci">
+          <label>Tenure</label>
+          <select id="wf-tenure" onchange="updateWhatIf()">
+            <option value="99">99-year Leasehold</option>
+            <option value="999">999-year Leasehold</option>
+            <option value="freehold">Freehold</option>
+          </select>
+        </div>
+        <div class="ci">
+          <label>Launch Year</label>
+          <input type="number" id="wf-launch-year" min="2020" max="2035" value="2025"
+                 style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;width:100%"
+                 oninput="updateWhatIf()">
+        </div>
+        <div class="ci">
+          <label>Starting PSF ($)</label>
+          <input type="number" id="wf-psf" placeholder="e.g. 2200" min="500" max="9999"
+                 style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;width:100%"
+                 oninput="updateWhatIf()">
+        </div>
+        <div class="ci">
+          <label>Unit Size Range</label>
+          <select id="wf-size" onchange="updateWhatIf()">
+            <option value="all">All Sizes</option>
+            <option value="lt500">&lt; 500 sqft</option>
+            <option value="500to800">500 – 800 sqft</option>
+            <option value="800to1100">800 – 1,100 sqft</option>
+            <option value="1100to1500">1,100 – 1,500 sqft</option>
+            <option value="gt1500">&gt; 1,500 sqft</option>
+          </select>
+        </div>
+        <div class="ci">
+          <label>Project Name (optional)</label>
+          <input type="text" id="wf-name" placeholder="My Hypothetical Launch"
+                 style="padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;width:100%"
+                 oninput="updateWhatIf()">
+        </div>
+      </div>
+    </div>
+    <!-- KPI outputs -->
+    <div class="calc-card">
+      <h3>Derived Metrics</h3>
+      <div class="results-grid">
+        <div class="result-box highlight">
+          <div class="rb-label">Hypothetical PSF</div>
+          <div class="rb-value" id="wf-rv-psf">—</div>
+          <div class="rb-sub">input PSF as specified</div>
+        </div>
+        <div class="result-box">
+          <div class="rb-label">Projected Resale PSF</div>
+          <div class="rb-value" id="wf-rv-resale">—</div>
+          <div class="rb-sub" id="wf-rs-resale">after lease decay</div>
+        </div>
+        <div class="result-box">
+          <div class="rb-label">Current Age</div>
+          <div class="rb-value" id="wf-rv-age">—</div>
+          <div class="rb-sub" id="wf-rs-age">years since launch</div>
+        </div>
+        <div class="result-box">
+          <div class="rb-label">Remaining Lease</div>
+          <div class="rb-value" id="wf-rv-lease">—</div>
+          <div class="rb-sub" id="wf-rs-lease">as of today</div>
+        </div>
+        <div class="result-box">
+          <div class="rb-label">Lease Decay Factor</div>
+          <div class="rb-value" id="wf-rv-decay">—</div>
+          <div class="rb-sub">vs 100% at launch</div>
+        </div>
+        <div class="result-box" id="wf-rb-verdict">
+          <div class="rb-label">Verdict vs District</div>
+          <div class="rb-value" id="wf-rv-verdict">—</div>
+          <div class="rb-sub" id="wf-rs-verdict">vs avg resale comps</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What-If: No Input Placeholder -->
+  <div id="wf-no-input" class="cc" style="padding:24px">
+    <div class="empty-placeholder">
+      <p>Enter a <strong>Starting PSF</strong> above to generate the comparison.</p>
+    </div>
+  </div>
+
+  <!-- What-If: Price Gap Overview -->
+  <div id="wf-section-gap" style="display:none">
+    <div class="cc">
+      <div class="ct">📊 Price Gap Overview</div>
+      <div class="cs">Hypothetical NL PSF vs comparable resale projects in the district (latest 2025-2026 prices)</div>
+      <div style="position:relative;height:340px">
+        <canvas id="c-wf-bar"></canvas>
+      </div>
+    </div>
+
+    <div class="table-card" id="wf-table-card">
+      <div class="table-hdr">
+        <h3>Price Gap — Raw & Harmonization-Adjusted</h3>
+        <span class="table-meta" id="wf-table-meta">—</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Project</th><th>Resale PSF</th><th>Lease Start</th><th>Rem. Lease</th>
+            <th>Raw Gap vs NL</th><th>Harm. Adj. Gap</th><th>Txns</th>
+          </tr></thead>
+          <tbody id="wf-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- What-If: Framework A — Price Reset -->
+  <div id="wf-section-fwa" style="display:none">
+    <div class="cc">
+      <div class="ct" style="color:var(--blue)">🔄 Framework A — Price Reset (Implied NL PSF)</div>
+      <div class="cs">For each resale comp: <strong>resale PSF ÷ remaining lease × 99 = implied NL PSF</strong>. If implied NL &lt; actual NL → resale has value.</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Project</th><th>Resale PSF</th><th>Rem. Lease</th>
+            <th>Implied NL PSF</th><th>vs Hyp. NL</th><th>Verdict</th>
+          </tr></thead>
+          <tbody id="wf-fwa-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- What-If: Framework B — $50/yr Gap Rule -->
+  <div id="wf-section-fwb" style="display:none">
+    <div class="cc">
+      <div class="ct" style="color:var(--teal)">📏 Framework B — $50/yr Gap Rule</div>
+      <div class="cs">For each comp: <strong>expected NL premium = $50 × age gap</strong>. Justified NL = comp PSF + premium. If post-harmonization, add 5%. Value = justified NL − actual NL.</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th>Project</th><th>Resale PSF</th><th>Age Gap (yrs)</th>
+            <th>$50/yr Premium</th><th>Justified NL PSF</th><th>+ Harm. 5%</th>
+            <th>Value vs NL</th>
+          </tr></thead>
+          <tbody id="wf-fwb-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SECTION D: LEASE RESET CALCULATOR
+  ═══════════════════════════════════════ -->
+  <div class="section-title">
+    🧮 Lease Reset Calculator
+    <span class="pill">Value Analysis</span>
+  </div>
+
+  <div class="calc-grid">
+    <!-- INPUTS -->
+    <div class="calc-card">
+      <h3>Property Details</h3>
+      <div class="calc-inputs">
+        <div class="ci">
+          <label>District</label>
+          <select id="c-district"><option value="all">All Districts</option></select>
+        </div>
+        <div class="ci">
+          <label>Bedroom Type</label>
+          <select id="c-bedroom">
+            <option value="all">All Types</option>
+            <option value="Studio">Studio</option>
+            <option value="1-Bedroom">1-Bedroom</option>
+            <option value="2-Bedroom">2-Bedroom</option>
+            <option value="3-Bedroom">3-Bedroom</option>
+            <option value="4-Bedroom">4-Bedroom</option>
+            <option value="5-Bedroom">5-Bedroom</option>
+            <option value="Penthouse">Penthouse</option>
+          </select>
+        </div>
+        <div class="ci" style="grid-column:1/-1">
+          <label>Remaining Lease Years: <strong id="lease-years-label">80</strong></label>
+          <div class="lease-slider-row">
+            <input type="range" id="c-lease" min="10" max="99" value="80" step="1" oninput="onLeaseSlider()">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px">
+              <span>10 yrs</span><span>30 yrs</span><span>50 yrs</span><span>70 yrs</span><span>99 yrs</span>
+            </div>
+          </div>
+        </div>
+        <div class="ci">
+          <label>Manual PSF Override</label>
+          <input type="number" id="c-psf" placeholder="e.g. 1500" min="0" max="9999" oninput="updateCalculator()">
+        </div>
+        <div class="ci">
+          <label>Lease Length</label>
+          <select id="c-leaselen">
+            <option value="99">99-year</option>
+            <option value="999">999-year</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="calc-card">
+      <h3>Analysis Results</h3>
+      <div class="results-grid" id="results-grid">
+        <div class="result-box" id="rb-remaining">
+          <div class="rb-label">Remaining Lease</div>
+          <div class="rb-value" id="rv-remaining">—</div>
+          <div class="rb-sub" id="rs-remaining">years left</div>
+        </div>
+        <div class="result-box" id="rb-decay">
+          <div class="rb-label">Lease Decay Factor</div>
+          <div class="rb-value" id="rv-decay">—</div>
+          <div class="rb-sub" id="rs-decay">value retained vs new</div>
+        </div>
+        <div class="result-box" id="rb-nl">
+          <div class="rb-label">District NL Avg PSF</div>
+          <div class="rb-value" id="rv-nl">—</div>
+          <div class="rb-sub" id="rs-nl">new launches</div>
+        </div>
+        <div class="result-box" id="rb-target">
+          <div class="rb-label">Target / Resale PSF</div>
+          <div class="rb-value" id="rv-target">—</div>
+          <div class="rb-sub" id="rs-target">your property</div>
+        </div>
+        <div class="result-box" id="rb-gap">
+          <div class="rb-label">Gap vs New Launch</div>
+          <div class="rb-value" id="rv-gap">—</div>
+          <div class="rb-sub" id="rs-gap">resale discount / premium</div>
+        </div>
+        <div class="result-box" id="rb-score">
+          <div class="rb-label">Value Score</div>
+          <div class="rb-value" id="rv-score">—</div>
+          <div class="rb-sub">out of 100</div>
+        </div>
+        <div class="result-box" id="rb-implied-nl">
+          <div class="rb-label">Implied NL PSF (Reset)</div>
+          <div class="rb-value" id="rv-implied-nl">—</div>
+          <div class="rb-sub" id="rs-implied-nl">Framework A: price reset to 99yr</div>
+        </div>
+        <div class="result-box" id="rb-fair-gap">
+          <div class="rb-label">Fair Discount ($50/yr)</div>
+          <div class="rb-value" id="rv-fair-gap">—</div>
+          <div class="rb-sub" id="rs-fair-gap">Framework B: expected gap vs NL</div>
+        </div>
+        <div class="result-box" id="rb-harm">
+          <div class="rb-label">Harmonization Adj.</div>
+          <div class="rb-value" id="rv-harm">—</div>
+          <div class="rb-sub" id="rs-harm">Framework C: post-2024 usable space</div>
+        </div>
+      </div>
+      <div class="score-wrap" id="score-wrap" style="display:none">
+        <div class="score-bar-bg"><div class="score-bar-fill" id="score-bar-fill"></div></div>
+        <div class="score-label">
+          <span>0 — Caution</span>
+          <span id="score-verdict-text"></span>
+          <span>100 — Excellent</span>
+        </div>
+      </div>
+      <p class="sparse-note" id="calc-sparse-note" style="display:none"></p>
+    </div>
+  </div>
+
+  <!-- LEASE DECAY CHART -->
+  <div class="cc">
+    <div class="ct">Lease Decay Projection</div>
+    <div class="cs" id="decay-chart-sub">Projected PSF over time as lease runs down · green dashed = current district new launch PSF</div>
+    <div style="position:relative;height:300px"><canvas id="c-lease-decay"></canvas></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- NO DATA STATE (shown when ura_data.js not found) -->
+<div class="main" id="no-data-state" style="display:none">
+  <div class="no-data-state">
+    <div style="font-size:48px;margin-bottom:12px">📂</div>
+    <h2>Real Data Required</h2>
+    <p>
+      This dashboard needs real URA transaction data to perform price gap analysis.<br>
+      Please load <strong>ura_data.js</strong> by running <code>fetch_ura_data.py</code> and placing the file in the same folder,<br>
+      then refresh this page.
+    </p>
+    <a href="sg-condo-dashboard.html">← Go to Main Dashboard</a>
+  </div>
+</div>
+
+<div class="footer" id="footer" style="display:none">
+  Price Gap Analysis · Singapore URA Transaction Data · <a href="sg-condo-dashboard.html" style="color:var(--blue)">Main Dashboard</a>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ══════════════════════════════════════════════════════
+const CURRENT_YEAR = 2026;
+const MIN_SAMPLE   = 5;
+const SPARSE_WARN  = 10;
+
+const SIZE_RANGES = {
+  all:       [0, Infinity],
+  lt500:     [0, 500],
+  '500to800':[500, 800],
+  '800to1100':[800, 1100],
+  '1100to1500':[1100, 1500],
+  gt1500:    [1500, Infinity]
+};
+
+// Lease decay anchors (Singapore market-calibrated)
+// Reflects CPF/bank loan eligibility cutoffs at 60 and 30 years
+const DECAY_ANCHORS = [
+  [99, 1.00], [80, 0.97], [70, 0.92], [60, 0.82],
+  [50, 0.70], [40, 0.55], [30, 0.40], [20, 0.22],
+  [10, 0.08], [0,  0.00]
+];
+
+// Age bracket definitions based on data availability (URA data window: 2021-2026)
+// Projects launched in data window: max 5 years old. Older = pre-2021 (null age).
+// null age = project launched before 2021 → treated as "pre-2021" in filters
+const AGE_BRACKETS = [
+  { key: '1to3',   label: '1–3 yrs',    min: 1,  max: 3,   includeNull: false },
+  { key: '4to5',   label: '4–5 yrs',    min: 4,  max: 5,   includeNull: false },
+  { key: 'pre2021',label: 'Pre-2021',   min: 6,  max: 999, includeNull: true  }
+];
+
+// Map: projectName → estimated launch year (earliest new sale year in data)
+let PROJECT_LAUNCH_YEAR = {};
+
+function buildProjectAgeMap(data) {
+  PROJECT_LAUNCH_YEAR = {};
+  data.filter(x => x.saleType === '1').forEach(x => {
+    if (!PROJECT_LAUNCH_YEAR[x.project] || x.year < PROJECT_LAUNCH_YEAR[x.project])
+      PROJECT_LAUNCH_YEAR[x.project] = x.year;
+  });
+}
+
+function getProjectAge(project) {
+  const ly = PROJECT_LAUNCH_YEAR[project];
+  return ly != null ? CURRENT_YEAR - ly : null;  // null = launched before data window
+}
+
+function getAgeBracketLabel(age) {
+  if (age === null) return '>10 yrs';  // pre-2021 projects
+  for (const b of AGE_BRACKETS) if (age >= b.min && age <= b.max) return b.label;
+  return '>10 yrs';
+}
+
+let ALL_DATA = [];
+let gapData  = [];
+let gapSortCol = 'gapPct';
+let gapSortDir = 'asc';  // ascending = resale cheapest first = best value first
+
+let barChart   = null;
+let trendChart = null;
+let decayChart = null;
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+const avg  = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0;
+const fmtP = v => '$' + Math.round(v).toLocaleString();
+const fmtPct = (v, plus) => (plus && v > 0 ? '+' : '') + v.toFixed(1) + '%';
+
+function leaseDecayFactor(yr) {
+  if (yr >= 99) return 1.0;
+  if (yr <= 0)  return 0.0;
+  for (let i = 0; i < DECAY_ANCHORS.length - 1; i++) {
+    const [y1, v1] = DECAY_ANCHORS[i];
+    const [y2, v2] = DECAY_ANCHORS[i + 1];
+    if (yr <= y1 && yr >= y2) {
+      const t = (yr - y2) / (y1 - y2);
+      return v2 + t * (v1 - v2);
+    }
+  }
+  return 0.0;
+}
+
+// ── getLatestPsf: avg PSF from latest year with sufficient data ──
+const MIN_LATEST = 3; // minimum records to consider a year valid
+function getLatestPsf(records) {
+  if (!records.length) return null;
+  for (const yr of [2026, 2025]) {
+    const recs = records.filter(x => x.year === yr);
+    if (recs.length >= MIN_LATEST) return Math.round(avg(recs.map(x => x.psf)));
+  }
+  // fallback: latest year with any data
+  const maxYr = Math.max(...records.map(x => x.year));
+  const latest = records.filter(x => x.year === maxYr);
+  if (latest.length >= MIN_LATEST) return Math.round(avg(latest.map(x => x.psf)));
+  return Math.round(avg(records.map(x => x.psf)));
+}
+
+// ── getDistrictLatestNLPsf: memoized district new-launch PSF (latest year) ──
+const _distNLPsfCache = {};
+function getDistrictLatestNLPsf(district) {
+  if (_distNLPsfCache[district] !== undefined) return _distNLPsfCache[district];
+  const nlRecs = ALL_DATA.filter(x => x.saleType === '1' && x.district === district);
+  _distNLPsfCache[district] = getLatestPsf(nlRecs);
+  return _distNLPsfCache[district];
+}
+function clearDistrictNLCache() { Object.keys(_distNLPsfCache).forEach(k => delete _distNLPsfCache[k]); }
+
+// ── Framework A: Price Reset ──
+function computeFairValuePsf(remainingLease, districtNLPsf) {
+  if (!remainingLease || !districtNLPsf) return null;
+  return Math.round(districtNLPsf * remainingLease / 99);
+}
+function computeImpliedNLPsf(resalePsf, remainingLease) {
+  if (!resalePsf || !remainingLease) return null;
+  return Math.round(resalePsf / remainingLease * 99);
+}
+
+// ── Framework B: $50/yr Rule ──
+// Expected $ discount per PSF vs NL for each year of lease consumed
+function computeFairGap50(remainingLease) {
+  if (!remainingLease) return null;
+  return (99 - remainingLease) * 50;
+}
+
+// ── Framework C: Post-harmonization adjustment ──
+// Post-2024 NL condos have ~5% more usable space
+function harmonizationAdjustment(projectName) {
+  const ly = PROJECT_LAUNCH_YEAR[projectName];
+  return (ly && ly >= 2025) ? 0.95 : 1.0;
+}
+
+// ── parseTenureString: extract lease details from URA tenure field ──
+function parseTenureString(tenureStr) {
+  // "99 years lease commencing from 2017" → { totalYears: 99, startYear: 2017 }
+  if (!tenureStr || tenureStr === 'Unknown') return null;
+  if (tenureStr.toLowerCase() === 'freehold') return { totalYears: Infinity, startYear: null };
+  const yearsMatch = tenureStr.match(/(\d+)\s*years?/i);
+  const fromMatch = tenureStr.match(/from\s+(\d{4})/i);
+  if (!yearsMatch) return null;
+  return {
+    totalYears: +yearsMatch[1],
+    startYear: fromMatch ? +fromMatch[1] : null
+  };
+}
+
+// ── estimateRemainingLease: use real tenure data if available ──
+// Memoized per project name for performance
+const _leaseCache = {};
+function estimateRemainingLease(projectName) {
+  if (_leaseCache[projectName] !== undefined) return _leaseCache[projectName];
+
+  // First try: parse real tenure from data
+  const first = ALL_DATA.find(x => x.project === projectName);
+  if (first) {
+    const parsed = parseTenureString(first.tenure);
+    if (parsed && parsed.totalYears === Infinity) {
+      _leaseCache[projectName] = null; // freehold
+      return null;
+    }
+    if (parsed && parsed.startYear && parsed.totalYears < 999) {
+      const remaining = parsed.totalYears - (CURRENT_YEAR - parsed.startYear);
+      _leaseCache[projectName] = { years: Math.max(0, remaining), estimated: false };
+      return _leaseCache[projectName];
+    }
+  }
+
+  // Fallback: PROJECT_LAUNCH_YEAR (assumes 99-year lease)
+  const ly = PROJECT_LAUNCH_YEAR[projectName];
+  if (ly != null) {
+    _leaseCache[projectName] = { years: Math.max(0, 99 - (CURRENT_YEAR - ly)), estimated: true };
+    return _leaseCache[projectName];
+  }
+
+  // Last resort: unknown
+  _leaseCache[projectName] = { years: 84, estimated: true };
+  return _leaseCache[projectName];
+}
+
+// ══════════════════════════════════════════════════════
+//  DATA LOADING
+// ══════════════════════════════════════════════════════
+function parseRows(raw) {
+  if (!raw) return [];
+  if (raw.cols && raw.rows) {
+    const cols = raw.cols;
+    return raw.rows.map(r => {
+      const o = {};
+      cols.forEach((c, i) => o[c] = r[i]);
+      o.psf             = +o.psf;
+      o.size            = +o.size;
+      o.transactionValue= +o.transactionValue;
+      o.year            = +o.year;
+      o.month           = +o.month;
+      return o;
+    });
+  }
+  if (Array.isArray(raw)) return raw;
+  return [];
+}
+
+function tryLoadRealData() {
+  return new Promise(resolve => {
+    if (window.URA_DATA && (window.URA_DATA.rows || window.URA_DATA.length)) {
+      resolve(true); return;
+    }
+    const s = document.createElement('script');
+    s.src = 'ura_data.js?' + Date.now();
+    s.onload  = () => resolve(!!(window.URA_DATA && (window.URA_DATA.rows || window.URA_DATA.length)));
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  FILTERS
+// ══════════════════════════════════════════════════════
+function getFilterValues() {
+  return {
+    district: document.getElementById('f-district').value,
+    bedroom:  document.getElementById('f-bedroom').value,
+    sizeKey:  document.getElementById('f-size').value,
+    year:     document.getElementById('f-year').value,
+    segment:  document.getElementById('f-segment').value,
+    age:      document.getElementById('f-age').value,
+    project:  document.getElementById('f-project').value
+  };
+}
+
+function applyFilters(data, { district, bedroom, sizeKey, year, segment, age, project }) {
+  const [sMin, sMax] = SIZE_RANGES[sizeKey] || [0, Infinity];
+  // Age bracket applies only to resale transactions (saleType="3")
+  // New launches (saleType="1") always pass through
+  const ageBracket = AGE_BRACKETS.find(b => b.key === age);
+  return data.filter(x => {
+    if (district !== 'all' && x.district !== district) return false;
+    if (bedroom  !== 'all' && x.bedroomType !== bedroom) return false;
+    if (x.size < sMin || x.size >= sMax) return false;
+    if (year !== 'all' && x.year !== +year) return false;
+    if (segment !== 'all' && x.marketSegment !== segment) return false;
+    if (project !== 'all' && x.project !== project) return false;
+    // Age filter: only restrict resale transactions
+    if (ageBracket && x.saleType === '3') {
+      const projAge = getProjectAge(x.project);
+      if (projAge === null) {
+        // Pre-2021 project: only pass if bracket explicitly includes nulls
+        if (!ageBracket.includeNull) return false;
+      } else {
+        if (projAge < ageBracket.min || projAge > ageBracket.max) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function populateFilters(data) {
+  // Districts
+  const distSel = document.getElementById('f-district');
+  const calcDistSel = document.getElementById('c-district');
+  const wfDistSel = document.getElementById('wf-district');
+  const dists = [...new Set(data.map(x => x.district))].sort();
+  dists.forEach(d => {
+    const opt = `<option value="${d}">${d}</option>`;
+    distSel.insertAdjacentHTML('beforeend', opt);
+    calcDistSel.insertAdjacentHTML('beforeend', opt);
+    wfDistSel.insertAdjacentHTML('beforeend', opt);
+  });
+
+  // Years
+  const yrSel = document.getElementById('f-year');
+  const yrs = [...new Set(data.map(x => x.year))].sort();
+  yrs.forEach(y => yrSel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`));
+
+  // Projects (sorted alphabetically)
+  const projSel = document.getElementById('f-project');
+  const projDatalist = document.getElementById('f-project-datalist');
+  const projects = [...new Set(data.map(x => x.project))].sort();
+  projects.forEach(p => {
+    const age = getProjectAge(p);
+    const ageLbl = age !== null ? ` (${age}yr)` : '';
+    projSel.insertAdjacentHTML('beforeend', `<option value="${p}">${p}${ageLbl}</option>`);
+    projDatalist.insertAdjacentHTML('beforeend', `<option value="${p}">${p}${ageLbl}</option>`);
+  });
+  document.getElementById('f-project-count').textContent = projects.length + ' projects';
+}
+
+// ══════════════════════════════════════════════════════
+//  GAP ANALYSIS COMPUTATION
+// ══════════════════════════════════════════════════════
+function computeGapData(data, filters) {
+  const f = applyFilters(data, filters);
+  const districtMap = {};
+
+  f.forEach(x => {
+    if (!districtMap[x.district]) districtMap[x.district] = { nl: [], rs: [], seg: x.marketSegment || '', ages: [] };
+    if (x.saleType === '1') districtMap[x.district].nl.push(x.psf);
+    if (x.saleType === '3') {
+      districtMap[x.district].rs.push(x.psf);
+      const a = getProjectAge(x.project);
+      if (a !== null) districtMap[x.district].ages.push(a);
+    }
+  });
+
+  const ageBracketLabel = filters.age !== 'all'
+    ? (AGE_BRACKETS.find(b => b.key === filters.age)?.label || 'All')
+    : 'All ages';
+
+  const result = Object.entries(districtMap).map(([district, { nl, rs, seg, ages }]) => {
+    const nlPsf = nl.length ? Math.round(avg(nl)) : null;
+    const rsPsf = rs.length ? Math.round(avg(rs)) : null;
+    const hasBoth = nl.length >= MIN_SAMPLE && rs.length >= MIN_SAMPLE;
+    const gapAbs = hasBoth ? rsPsf - nlPsf : null;
+    const gapPct = hasBoth ? +((gapAbs / nlPsf) * 100).toFixed(1) : null;
+    const avgAge = ages.length ? +(avg(ages)).toFixed(1) : null;
+    return {
+      district, marketSegment: seg,
+      newLaunchPsf: nlPsf, resalePsf: rsPsf,
+      gapAbs, gapPct,
+      newCount: nl.length, resaleCount: rs.length,
+      avgAge, ageBracketLabel,
+      sparse: !hasBoth
+    };
+  });
+
+  // Sort by total volume, keep top 15
+  return result
+    .filter(x => x.newCount + x.resaleCount > 0)
+    .sort((a, b) => (b.newCount + b.resaleCount) - (a.newCount + a.resaleCount))
+    .slice(0, 15);
+}
+
+// Compute average PSF for new launches and each resale age bracket
+// Returns [{label, nlPsf, rsPsf, gapPct, n}]
+function computeGapByAge(data, filters) {
+  const base = applyFilters(data, { ...filters, age: 'all' }); // ignore age filter here
+  const nlAll = base.filter(x => x.saleType === '1');
+  const nlPsf = nlAll.length >= MIN_SAMPLE ? Math.round(avg(nlAll.map(x => x.psf))) : null;
+
+  return AGE_BRACKETS.map(bracket => {
+    const rs = base.filter(x => {
+      if (x.saleType !== '3') return false;
+      const a = getProjectAge(x.project);
+      if (a === null) return bracket.includeNull === true;
+      return a >= bracket.min && a <= bracket.max;
+    });
+    const rsPsf = rs.length >= MIN_SAMPLE ? Math.round(avg(rs.map(x => x.psf))) : null;
+    const gapPct = nlPsf && rsPsf ? +((rsPsf - nlPsf) / nlPsf * 100).toFixed(1) : null;
+    return { label: bracket.label, nlPsf, rsPsf, gapPct, n: rs.length };
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  KPI UPDATE
+// ══════════════════════════════════════════════════════
+function updateKPIs(gap) {
+  const valid = gap.filter(x => !x.sparse);
+  const allNL  = gap.filter(x => x.newLaunchPsf !== null);
+  const allRS  = gap.filter(x => x.resalePsf !== null);
+
+  const nlPsf  = allNL.length ? Math.round(avg(allNL.map(x => x.newLaunchPsf))) : null;
+  const rsPsf  = allRS.length ? Math.round(avg(allRS.map(x => x.resalePsf))) : null;
+  const avgGap = valid.length ? +(avg(valid.map(x => x.gapPct))).toFixed(1) : null;
+
+  document.getElementById('kv-nl').textContent   = nlPsf ? fmtP(nlPsf) : '—';
+  document.getElementById('ks-nl').textContent   = allNL.length ? `${allNL.reduce((s,x)=>s+(x.newCount||0),0).toLocaleString()} new sale txns` : 'no data';
+  document.getElementById('kv-rs').textContent   = rsPsf ? fmtP(rsPsf) : '—';
+  document.getElementById('ks-rs').textContent   = allRS.length ? `${allRS.reduce((s,x)=>s+(x.resaleCount||0),0).toLocaleString()} resale txns` : 'no data';
+  document.getElementById('kv-gap').textContent  = avgGap !== null ? fmtPct(avgGap, true) : '—';
+  document.getElementById('ks-gap').textContent  = avgGap !== null ? (avgGap < 0 ? 'resale cheaper than NL' : 'resale pricier than NL') : 'insufficient data';
+
+  const gapEl = document.getElementById('kv-gap');
+  gapEl.style.color = avgGap !== null ? (avgGap < 0 ? 'var(--green)' : 'var(--red)') : 'var(--text)';
+
+  document.getElementById('kv-dist').textContent = valid.length;
+  document.getElementById('ks-dist').textContent = `out of ${gap.length} with transactions`;
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART: BAR (NL vs RESALE BY DISTRICT)
+// ══════════════════════════════════════════════════════
+const zeroLinePlugin = {
+  id: 'zeroLine',
+  afterDraw(chart) {
+    if (!chart.config._zero) return;
+    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+    const z = y.getPixelForValue(0);
+    if (z < chart.chartArea.top || z > chart.chartArea.bottom) return;
+    ctx.save();
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(left, z); ctx.lineTo(right, z); ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(zeroLinePlugin);
+
+const CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true, padding: 10 } }
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: { grid: { color: '#eff1f5' }, ticks: { font: { size: 11 } } }
+  }
+};
+
+function renderBarChart(gap) {
+  const chartable = gap.filter(x => x.newLaunchPsf !== null && x.resalePsf !== null);
+
+  if (barChart) { barChart.destroy(); barChart = null; }
+  if (!chartable.length) return;
+
+  const minSparseN = Math.min(...chartable.map(x => Math.min(x.newCount, x.resaleCount)));
+  const swEl = document.getElementById('sw-bar');
+  if (minSparseN < SPARSE_WARN) {
+    swEl.textContent = `⚠ Some districts have limited data (n=${minSparseN} transactions). Results may not be representative.`;
+    swEl.classList.add('show');
+  } else {
+    swEl.classList.remove('show');
+  }
+
+  const ctx = document.getElementById('c-gap-bar').getContext('2d');
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartable.map(x => x.district),
+      datasets: [
+        {
+          label: 'New Launch PSF',
+          data: chartable.map(x => x.newLaunchPsf),
+          backgroundColor: '#C0392B',
+          borderRadius: 4,
+          borderSkipped: false
+        },
+        {
+          label: 'Resale PSF',
+          data: chartable.map(x => x.resalePsf),
+          backgroundColor: '#2c4a8c',
+          borderRadius: 4,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      plugins: {
+        ...CHART_OPTS.plugins,
+        tooltip: {
+          callbacks: {
+            afterBody(items) {
+              const d = chartable[items[0].dataIndex];
+              if (!d || d.gapAbs === null) return '';
+              const sign = d.gapPct >= 0 ? '+' : '';
+              return `Gap: ${fmtP(Math.abs(d.gapAbs))} (${sign}${d.gapPct}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        ...CHART_OPTS.scales,
+        y: { ...CHART_OPTS.scales.y, ticks: { ...CHART_OPTS.scales.y.ticks, callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART: PSF BY AGE BRACKET
+// ══════════════════════════════════════════════════════
+function renderAgeChart(ageData) {
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+  const valid = ageData.filter(x => x.rsPsf !== null);
+  if (!valid.length) return;
+
+  const nlRef = ageData[0]?.nlPsf;
+  const labels = ['New Launch', ...valid.map(x => x.label)];
+  const psfValues = [nlRef, ...valid.map(x => x.rsPsf)];
+  const colors = [
+    '#C0392B',   // new launch = red
+    '#2c4a8c',   // 0-2 yrs
+    '#0891b2',   // 3-5 yrs
+    '#d97706',   // 6-10 yrs
+    '#5a6a8a'    // >10 yrs
+  ];
+
+  const ctx = document.getElementById('c-gap-trend').getContext('2d');
+  trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Avg PSF by Age',
+        data: psfValues,
+        backgroundColor: colors.slice(0, labels.length),
+        borderRadius: 5,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => {
+              const v = item.raw;
+              if (item.dataIndex === 0) return ` New Launch: ${fmtP(v)}`;
+              const d = valid[item.dataIndex - 1];
+              const sign = d.gapPct >= 0 ? '+' : '';
+              const n = d.n;
+              return ` ${fmtP(v)} · gap ${sign}${d.gapPct}% (n=${n})`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#eff1f5' },
+          ticks: { font: { size: 11 }, callback: v => '$' + v.toLocaleString() }
+        }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  TABLE: GAP ANALYSIS
+// ══════════════════════════════════════════════════════
+function sortGap(col) {
+  if (gapSortCol === col) {
+    gapSortDir = gapSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    gapSortCol = col;
+    gapSortDir = col === 'gapPct' ? 'asc' : 'desc';
+  }
+  renderGapTable(gapData);
+}
+
+function renderGapTable(data) {
+  // Update sort indicators
+  ['district','marketSegment','newLaunchPsf','resalePsf','gapAbs','gapPct','newCount','resaleCount','avgAge'].forEach(c => {
+    const el = document.getElementById('gh-' + c);
+    if (el) el.textContent = gapSortCol === c ? (gapSortDir === 'asc' ? '▲' : '▼') : '';
+    const th = el?.closest('th');
+    if (th) th.classList.toggle('sorted', gapSortCol === c);
+  });
+
+  const sorted = [...data].sort((a, b) => {
+    let va = a[gapSortCol], vb = b[gapSortCol];
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    if (typeof va === 'string') return gapSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    return gapSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const tbody = document.getElementById('gap-tbody');
+  const validCount = data.filter(x => !x.sparse).length;
+  document.getElementById('gap-table-meta').textContent =
+    `${validCount} of ${data.length} districts with sufficient data`;
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="no-data">No data for current filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(row => {
+    const segBadge = row.marketSegment
+      ? `<span class="badge b-${row.marketSegment.toLowerCase()}">${row.marketSegment}</span>`
+      : '—';
+
+    const nlCell = row.newLaunchPsf !== null
+      ? `<span class="bld">${fmtP(row.newLaunchPsf)}</span> <span class="n-badge">n=${row.newCount}</span>`
+      : `— <span class="n-badge">n=${row.newCount}</span>`;
+
+    const rsCell = row.resalePsf !== null
+      ? `<span class="bld">${fmtP(row.resalePsf)}</span> <span class="n-badge">n=${row.resaleCount}</span>`
+      : `— <span class="n-badge">n=${row.resaleCount}</span>`;
+
+    let gapAbsCell = '—', gapPctCell = '—';
+    if (row.gapAbs !== null) {
+      const cls = row.gapPct < 0 ? 'gap-pos' : 'gap-neg';
+      const sign = row.gapAbs >= 0 ? '+' : '';
+      gapAbsCell = `<span class="${cls}">${sign}${fmtP(row.gapAbs)}</span>`;
+      gapPctCell = `<span class="${cls}">${sign}${row.gapPct}%</span>`;
+    } else if (row.sparse) {
+      gapAbsCell = `<span style="color:var(--muted);font-size:10px">insuf. data</span>`;
+      gapPctCell = `<span style="color:var(--muted);font-size:10px">—</span>`;
+    }
+
+    const ageCell = row.avgAge !== null
+      ? `<span class="n-badge">${row.avgAge.toFixed(0)} yrs avg</span>`
+      : `<span class="n-badge">Pre-2021</span>`;
+
+    return `<tr>
+      <td class="bld">${row.district}</td>
+      <td>${segBadge}</td>
+      <td>${ageCell}</td>
+      <td>${nlCell}</td>
+      <td>${rsCell}</td>
+      <td>${gapAbsCell}</td>
+      <td>${gapPctCell}</td>
+      <td>${row.newCount}</td>
+      <td>${row.resaleCount}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  LEASE RESET CALCULATOR
+// ══════════════════════════════════════════════════════
+function onLeaseSlider() {
+  const val = +document.getElementById('c-lease').value;
+  document.getElementById('lease-years-label').textContent = val;
+  updateCalculator();
+}
+
+function computeValueScore(remainingLease, gapPct, nlPsf, targetPsf, fairGapDelta) {
+  if (remainingLease == null) return null; // unknown lease → no score
+  const leaseScore = Math.min(40, Math.max(0, (remainingLease / 80) * 40));
+  const discount   = gapPct !== null ? -gapPct : 0; // positive = resale cheaper
+  const priceScore = Math.min(40, Math.max(0, (discount / 30) * 40));
+  const liqScore   = remainingLease >= 75 ? 20
+    : remainingLease <= 30 ? 0
+    : ((remainingLease - 30) / 45) * 20;
+  // Fair value bonus: ±10 pts based on Framework A delta
+  let fairBonus = 0;
+  if (fairGapDelta != null) {
+    // negative fairGapDelta = below fair value = good → positive bonus
+    fairBonus = Math.max(-10, Math.min(10, -fairGapDelta / 50 * 10));
+  }
+  return Math.max(0, Math.min(100, Math.round(leaseScore + priceScore + liqScore + fairBonus)));
+}
+
+function updateCalculator() {
+  const district     = document.getElementById('c-district').value;
+  const bedroom      = document.getElementById('c-bedroom').value;
+  const remainingLease = +document.getElementById('c-lease').value;
+  const leaseLenYrs  = +document.getElementById('c-leaselen').value;
+  const manualPsf    = +document.getElementById('c-psf').value || 0;
+
+  const decayFactor = leaseDecayFactor(remainingLease);
+
+  // Pull from data
+  const relevant = ALL_DATA.filter(x =>
+    (district === 'all' || x.district === district) &&
+    (bedroom  === 'all' || x.bedroomType === bedroom)
+  );
+  let nlRecs = relevant.filter(x => x.saleType === '1');
+  let rsRecs = relevant.filter(x => x.saleType === '3');
+  let widened = false;
+
+  // Auto-widen bedroom if insufficient NL data
+  if (nlRecs.length < MIN_SAMPLE && bedroom !== 'all') {
+    const wider = ALL_DATA.filter(x => district === 'all' || x.district === district);
+    nlRecs  = wider.filter(x => x.saleType === '1');
+    rsRecs  = wider.filter(x => x.saleType === '3');
+    widened = true;
+  }
+
+  // Use latest-year PSF (2025-2026) instead of all-time average
+  const nlPsf     = getLatestPsf(nlRecs);
+  const rsAvgPsf  = getLatestPsf(rsRecs);
+  const targetPsf = manualPsf > 0 ? manualPsf : rsAvgPsf;
+  const gapAbs    = nlPsf !== null && targetPsf !== null ? targetPsf - nlPsf : null;
+  const gapPct    = gapAbs !== null ? +((gapAbs / nlPsf) * 100).toFixed(1) : null;
+
+  // Framework A: Implied NL PSF (price reset)
+  const impliedNL = computeImpliedNLPsf(targetPsf, remainingLease);
+  // Framework B: Fair discount ($50/yr rule)
+  const fairGap   = computeFairGap50(remainingLease);
+  const actualGap = nlPsf && targetPsf ? nlPsf - targetPsf : null; // positive = resale cheaper
+  // Framework C: Harmonization — check if district has post-2024 NL
+  const distNLPsf = district !== 'all' ? getDistrictLatestNLPsf(district) : nlPsf;
+  const hasPostHarm = district !== 'all' && ALL_DATA.some(x =>
+    x.saleType === '1' && x.district === district && PROJECT_LAUNCH_YEAR[x.project] >= 2025);
+  const harmAdj   = hasPostHarm ? 0.95 : 1.0;
+  const adjNLPsf  = distNLPsf ? Math.round(distNLPsf * harmAdj) : null;
+
+  // Fair gap delta for scoring
+  const fairValuePsf = computeFairValuePsf(remainingLease, adjNLPsf || nlPsf);
+  const fairGapDelta = targetPsf && fairValuePsf ? targetPsf - fairValuePsf : null;
+  const score     = computeValueScore(remainingLease, gapPct, nlPsf, targetPsf, fairGapDelta);
+
+  // Update remaining
+  const rbRem = document.getElementById('rb-remaining');
+  document.getElementById('rv-remaining').textContent = remainingLease + ' yrs';
+  document.getElementById('rs-remaining').textContent =
+    remainingLease >= 75 ? 'Good liquidity (CPF usable)' :
+    remainingLease >= 50 ? 'Moderate (some CPF limits)' :
+    remainingLease >= 30 ? 'Restricted (CPF partial)' : 'Critical (cash-only)';
+  rbRem.className = 'result-box ' + (remainingLease >= 75 ? 'good' : remainingLease >= 50 ? '' : remainingLease >= 30 ? 'warn' : 'bad');
+
+  // Decay factor
+  document.getElementById('rv-decay').textContent = (decayFactor * 100).toFixed(1) + '%';
+  document.getElementById('rs-decay').textContent = `vs 99-year at 100%`;
+  document.getElementById('rb-decay').className   = 'result-box ' + (decayFactor >= 0.9 ? 'good' : decayFactor >= 0.7 ? '' : decayFactor >= 0.5 ? 'warn' : 'bad');
+
+  // District NL PSF
+  document.getElementById('rv-nl').textContent     = nlPsf ? fmtP(nlPsf) : '—';
+  document.getElementById('rs-nl').textContent     = nlPsf ? `${nlRecs.length} txns${widened ? ' (all bedrooms)' : ''}` : 'no data';
+  document.getElementById('rb-nl').className       = 'result-box highlight';
+
+  // Target PSF
+  document.getElementById('rv-target').textContent = targetPsf ? fmtP(targetPsf) : '—';
+  document.getElementById('rs-target').textContent = manualPsf > 0 ? 'manual entry' : (rsAvgPsf ? `${rsRecs.length} resale txns` : 'no data');
+
+  // Gap
+  if (gapAbs !== null) {
+    const sign = gapAbs >= 0 ? '+' : '';
+    const cls  = gapPct < 0 ? 'good' : gapPct > 10 ? 'bad' : 'warn';
+    document.getElementById('rv-gap').textContent = `${sign}${fmtP(gapAbs)}`;
+    document.getElementById('rs-gap').textContent = fmtPct(gapPct, true) + (gapPct < 0 ? ' — resale discount' : ' — resale premium');
+    document.getElementById('rb-gap').className   = 'result-box ' + cls;
+    document.getElementById('rv-gap').style.color = gapPct < 0 ? 'var(--green)' : 'var(--red)';
+  } else {
+    document.getElementById('rv-gap').textContent = '—';
+    document.getElementById('rs-gap').textContent = 'insufficient data';
+    document.getElementById('rb-gap').className   = 'result-box';
+    document.getElementById('rv-gap').style.color = '';
+  }
+
+  // Value score
+  if (score != null) {
+    document.getElementById('rv-score').textContent = score;
+    const scoreFill = document.getElementById('score-bar-fill');
+    const verdictEl = document.getElementById('score-verdict-text');
+    scoreFill.style.width = score + '%';
+    scoreFill.style.background = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
+    document.getElementById('rb-score').className   = 'result-box ' + (score >= 70 ? 'good' : score >= 50 ? 'warn' : 'bad');
+    verdictEl.innerHTML = score >= 70
+      ? '<span class="score-verdict sv-good">Good Value</span>'
+      : score >= 50
+      ? '<span class="score-verdict sv-fair">Fair</span>'
+      : '<span class="score-verdict sv-caution">Caution</span>';
+    document.getElementById('score-wrap').style.display = '';
+  } else {
+    document.getElementById('rv-score').textContent = '?';
+    document.getElementById('rb-score').className   = 'result-box';
+    document.getElementById('score-wrap').style.display = 'none';
+  }
+
+  // Framework A: Implied NL PSF
+  if (impliedNL && nlPsf) {
+    const diff = impliedNL - nlPsf;
+    const pct  = ((diff / nlPsf) * 100).toFixed(1);
+    const isGood = diff <= 0; // implied NL <= actual NL = good value
+    document.getElementById('rv-implied-nl').textContent = fmtP(impliedNL);
+    document.getElementById('rs-implied-nl').textContent =
+      `${isGood ? '✓' : '✗'} ${isGood ? 'Below' : 'Above'} actual NL ${fmtP(nlPsf)} (${diff >= 0 ? '+' : ''}${pct}%)`;
+    document.getElementById('rb-implied-nl').className = 'result-box ' + (isGood ? 'good' : 'warn');
+    document.getElementById('rv-implied-nl').style.color = isGood ? 'var(--green)' : 'var(--red)';
+  } else {
+    document.getElementById('rv-implied-nl').textContent = '—';
+    document.getElementById('rs-implied-nl').textContent = 'need district NL + lease data';
+    document.getElementById('rb-implied-nl').className = 'result-box';
+    document.getElementById('rv-implied-nl').style.color = '';
+  }
+
+  // Framework B: Fair discount ($50/yr rule)
+  if (fairGap !== null) {
+    document.getElementById('rv-fair-gap').textContent = fmtP(fairGap);
+    if (actualGap !== null) {
+      const isGood = actualGap >= fairGap;
+      document.getElementById('rs-fair-gap').textContent =
+        `Actual gap: ${fmtP(actualGap)} — ${isGood ? '✓ exceeds fair discount' : '✗ below fair discount'}`;
+      document.getElementById('rb-fair-gap').className = 'result-box ' + (isGood ? 'good' : 'warn');
+    } else {
+      document.getElementById('rs-fair-gap').textContent = 'expected gap for ' + (99 - remainingLease) + ' yrs consumed';
+      document.getElementById('rb-fair-gap').className = 'result-box';
+    }
+  } else {
+    document.getElementById('rv-fair-gap').textContent = '—';
+    document.getElementById('rs-fair-gap').textContent = 'need lease data';
+    document.getElementById('rb-fair-gap').className = 'result-box';
+  }
+
+  // Framework C: Harmonization adjustment
+  if (hasPostHarm && adjNLPsf) {
+    document.getElementById('rv-harm').textContent = fmtP(adjNLPsf);
+    document.getElementById('rs-harm').textContent =
+      `~5% adj · Raw NL: ${fmtP(distNLPsf)} → Effective: ${fmtP(adjNLPsf)}`;
+    document.getElementById('rb-harm').className = 'result-box highlight';
+  } else {
+    document.getElementById('rv-harm').textContent = 'N/A';
+    document.getElementById('rs-harm').textContent = district !== 'all'
+      ? 'No post-2024 NL in this district' : 'Select a district';
+    document.getElementById('rb-harm').className = 'result-box';
+  }
+
+  // Sparse note
+  const noteEl = document.getElementById('calc-sparse-note');
+  if (widened) {
+    noteEl.textContent = `⚠ Insufficient data for selected bedroom type — showing all bedrooms for ${district === 'all' ? 'all districts' : district}.`;
+    noteEl.style.display = '';
+  } else if (nlRecs.length < SPARSE_WARN || rsRecs.length < SPARSE_WARN) {
+    noteEl.textContent = `⚠ Limited data (NL: ${nlRecs.length} txns, Resale: ${rsRecs.length} txns) — estimates are indicative only.`;
+    noteEl.style.display = '';
+  } else {
+    noteEl.style.display = 'none';
+  }
+
+  // Render decay chart
+  renderDecayChart(remainingLease, leaseLenYrs, targetPsf, nlPsf);
+}
+
+// ══════════════════════════════════════════════════════
+//  CHART: LEASE DECAY
+// ══════════════════════════════════════════════════════
+function renderDecayChart(remainingLease, leaseLenYrs, currentPsf, nlPsf) {
+  if (decayChart) { decayChart.destroy(); decayChart = null; }
+  if (!currentPsf) return;
+
+  const leaseEndYear   = CURRENT_YEAR + remainingLease;
+  const peakFactor     = leaseDecayFactor(remainingLease);
+  const peakPsf        = peakFactor > 0 ? currentPsf / peakFactor : currentPsf;
+
+  const points = [];
+  const step   = remainingLease > 40 ? 5 : 2;
+  for (let yr = CURRENT_YEAR; yr <= leaseEndYear; yr += step) {
+    const rem = leaseEndYear - yr;
+    points.push({ year: yr, rem, factor: leaseDecayFactor(rem), psf: Math.round(peakPsf * leaseDecayFactor(rem)) });
+  }
+  if (points[points.length - 1]?.year !== leaseEndYear) {
+    points.push({ year: leaseEndYear, rem: 0, factor: 0, psf: 0 });
+  }
+
+  document.getElementById('decay-chart-sub').textContent =
+    `Remaining: ${remainingLease} yrs · Decay factor: ${(peakFactor*100).toFixed(1)}% · Lease ends: ${leaseEndYear}` +
+    (nlPsf ? ' · Green dashed = current district new launch PSF' : '');
+
+  const ctx = document.getElementById('c-lease-decay').getContext('2d');
+  const datasets = [
+    {
+      label: 'Projected PSF (decay)',
+      data: points.map(p => p.psf),
+      borderColor: '#C0392B',
+      backgroundColor: 'rgba(192,57,43,.08)',
+      tension: 0.3,
+      fill: true,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      borderWidth: 2.5
+    }
+  ];
+  if (nlPsf) {
+    datasets.push({
+      label: 'District New Launch PSF (today)',
+      data: points.map(() => nlPsf),
+      borderColor: '#16a34a',
+      borderDash: [6, 4],
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false
+    });
+  }
+
+  decayChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: points.map(p => `${p.year} (${p.rem}yr)`),
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: item => {
+              const p = points[item.dataIndex];
+              if (!p) return '';
+              return item.datasetIndex === 0
+                ? ` $${item.raw?.toLocaleString()} PSF · factor ${(leaseDecayFactor(p.rem)*100).toFixed(1)}%`
+                : ` $${item.raw?.toLocaleString()} PSF (new launch ref)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { grid: { color: '#eff1f5' }, ticks: { font: { size: 11 }, callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  FULL UPDATE (called on filter change)
+// ══════════════════════════════════════════════════════
+function updateAll() {
+  const filters = getFilterValues();
+  gapData = computeGapData(ALL_DATA, filters);
+  const ageData = computeGapByAge(ALL_DATA, filters);
+
+  updateKPIs(gapData);
+  renderBarChart(gapData);
+  renderAgeChart(ageData);
+  renderGapTable(gapData);
+  updateCalculator();
+}
+
+// ══════════════════════════════════════════════════════
+//  NEW FEATURE STATE
+// ══════════════════════════════════════════════════════
+let MP_PROJECTS  = [];    // ordered list of project names, max 6
+let mpBarChart   = null;
+let mpScoreChart = null;
+let wfChart      = null;
+
+const MP_COLORS = ['#C0392B','#2c4a8c','#0891b2','#d97706','#16a34a','#7c3aed'];
+
+// ══════════════════════════════════════════════════════
+//  SHARED HELPER: getProjectStats(projectName)
+// ══════════════════════════════════════════════════════
+function getProjectStats(projectName) {
+  const recs = ALL_DATA.filter(x => x.project === projectName);
+  if (!recs.length) return null;
+
+  const nlRecs = recs.filter(x => x.saleType === '1');
+  const rsRecs = recs.filter(x => x.saleType === '3');
+  const first  = recs[0];
+
+  const age      = getProjectAge(projectName);
+  const avgSize  = avg(recs.map(x => x.size));
+  // Use latest-year PSF instead of all-time average
+  const avgPsf   = getLatestPsf(recs) || Math.round(avg(recs.map(x => x.psf)));
+  const nlPsf    = getLatestPsf(nlRecs);
+  const rsPsf    = getLatestPsf(rsRecs);
+  const gapPct   = nlPsf && rsPsf ? +((rsPsf - nlPsf) / nlPsf * 100).toFixed(1) : null;
+  const estUnits = Math.round(recs.length / 0.15);
+
+  // Remaining lease from PROJECT_LAUNCH_YEAR
+  const leaseEst = estimateRemainingLease(projectName);
+  const remainingLease = leaseEst ? leaseEst.years : null;
+  const remainingLeaseKnown = leaseEst && !leaseEst.estimated ? true : null; // null = estimated
+
+  // District NL benchmark (latest prices)
+  const districtNLPsf = getDistrictLatestNLPsf(first.district);
+
+  // Framework A: Fair Value PSF
+  const harmAdj = harmonizationAdjustment(projectName);
+  const isPostHarmonization = harmAdj < 1;
+  const adjustedDistNL = districtNLPsf ? Math.round(districtNLPsf * harmAdj) : null;
+  const fairValuePsf = computeFairValuePsf(remainingLease, adjustedDistNL);
+  const fairGapDelta = rsPsf && fairValuePsf ? rsPsf - fairValuePsf : null; // negative = below fair = good
+
+  // Framework B: $50/yr rule
+  const fairGap50 = computeFairGap50(remainingLease);
+
+  return {
+    project: projectName,
+    district:   first.district,
+    marketSegment: first.marketSegment || '',
+    tenureType: first.tenureType || '',
+    tenure:     first.tenure     || '',
+    age, avgSize: Math.round(avgSize),
+    avgPsf: Math.round(avgPsf),
+    nlPsf, rsPsf, gapPct,
+    txnCount: recs.length, nlCount: nlRecs.length, rsCount: rsRecs.length,
+    remainingLease, remainingLeaseKnown, estUnits,
+    districtNLPsf, fairValuePsf, fairGapDelta, fairGap50,
+    harmAdj, isPostHarmonization
+  };
+}
+
+// ══════════════════════════════════════════════════════
+//  FEATURE 1: COMPS FINDER
+// ══════════════════════════════════════════════════════
+function findComps(selectedProject) {
+  const subject = getProjectStats(selectedProject);
+  if (!subject) {
+    document.getElementById('comps-results').style.display    = 'none';
+    document.getElementById('comps-prompt-card').style.display = '';
+    return;
+  }
+  document.getElementById('comps-prompt-card').style.display = 'none';
+  document.getElementById('comps-results').style.display     = '';
+
+  // All other project names in the dataset
+  const allProjects = [...new Set(ALL_DATA.map(x => x.project))].filter(p => p !== selectedProject);
+
+  const comps = [];
+  allProjects.forEach(p => {
+    const s = getProjectStats(p);
+    if (!s) return;
+    if (s.district    !== subject.district)    return;
+    if (s.tenureType  !== subject.tenureType)  return;
+    if (s.txnCount     < MIN_SAMPLE)           return;
+
+    // Age diff: both null = 0; one known + one null = heavy penalty
+    let ageDiff;
+    if (subject.age === null && s.age === null) ageDiff = 0;
+    else if (subject.age === null || s.age === null) ageDiff = 999;
+    else ageDiff = Math.abs(s.age - subject.age);
+    if (ageDiff > 3) return;
+
+    const sizeDiff = Math.abs(s.avgSize - subject.avgSize);
+    if (sizeDiff > 200) return;
+
+    const similarity = ageDiff * 10 + sizeDiff * 0.1;
+    comps.push({ ...s, similarity });
+  });
+
+  comps.sort((a, b) => a.similarity - b.similarity);
+  renderCompsTable(subject, comps.slice(0, 8));
+}
+
+function renderCompsTable(subject, comps) {
+  document.getElementById('comps-subject-name').textContent = subject.project;
+  document.getElementById('comps-subject-meta').textContent =
+    `${subject.district} · ${subject.tenureType} · ${subject.age !== null ? subject.age + ' yr' : 'Pre-2021'} · ${subject.avgSize} sqft avg`;
+  document.getElementById('comps-table-meta').textContent =
+    `${comps.length} comp${comps.length !== 1 ? 's' : ''} found · ${subject.district} ${subject.tenureType}`;
+
+  const fmtAge = age => age !== null ? age + ' yr' : 'Pre-2021';
+  const fmtRL  = rl  => rl  !== null ? rl  + ' yr'  : 'N/A';
+  const fmtGap = (pct, abs) => {
+    if (pct === null) return '—';
+    const cls  = pct < 0 ? 'gap-pos' : 'gap-neg';
+    const sign = pct >= 0 ? '+' : '';
+    return `<span class="${cls}">${sign}${pct}% (${sign}${fmtP(abs)})</span>`;
+  };
+
+  const allRows = [{ ...subject, isSubject: true }, ...comps.map(c => ({ ...c, isSubject: false }))];
+
+  document.getElementById('comps-tbody').innerHTML = allRows.map(row => {
+    const gapAbs = row.nlPsf && row.rsPsf ? row.rsPsf - row.nlPsf : null;
+    return `<tr class="${row.isSubject ? 'comps-subject-row' : ''}">
+      <td class="bld">${row.project}${row.isSubject ? ' <span class="n-badge">selected</span>' : ''}</td>
+      <td>${fmtAge(row.age)}</td>
+      <td><span class="n-badge">${row.tenure && row.tenure !== 'Unknown' ? row.tenure : (row.tenureType && row.tenureType !== 'Unknown' ? row.tenureType : '—')}</span></td>
+      <td class="bld">${fmtP(row.avgPsf)}</td>
+      <td>${row.nlPsf ? fmtP(row.nlPsf) + '<span class="n-badge"> n=' + row.nlCount + '</span>' : '—'}</td>
+      <td>${row.rsPsf ? fmtP(row.rsPsf) + '<span class="n-badge"> n=' + row.rsCount + '</span>' : '—'}</td>
+      <td>${fmtGap(row.gapPct, gapAbs)}</td>
+      <td>${row.avgSize} sqft</td>
+      <td>${row.txnCount} <span class="n-badge">~${row.estUnits} est.</span></td>
+      <td>${fmtRL(row.remainingLease)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════
+function initTabs() {
+  document.querySelectorAll('#comp-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#comp-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const t = btn.dataset.tab;
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.style.display = (p.id === 'tab-' + t) ? '' : 'none';
+      });
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  FEATURE 2: MULTI-PROJECT COMPARE
+// ══════════════════════════════════════════════════════
+function populateMpDatalist() {
+  const dl = document.getElementById('mp-datalist');
+  [...new Set(ALL_DATA.map(x => x.project))].sort().forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    dl.appendChild(opt);
+  });
+}
+
+function addMpProject(name) {
+  if (!name) return;
+  const upper = name.toUpperCase().trim();
+  const match = [...new Set(ALL_DATA.map(x => x.project))]
+    .find(p => p.toUpperCase() === upper || p.toUpperCase().includes(upper));
+  if (!match) { alert(`Project "${name}" not found in data.`); return; }
+  if (MP_PROJECTS.includes(match)) { alert(`"${match}" is already in the comparison.`); return; }
+  if (MP_PROJECTS.length >= 6)     { alert('Maximum 6 projects allowed.'); return; }
+  MP_PROJECTS.push(match);
+  document.getElementById('mp-search').value = '';
+  renderMpTags();
+  renderMultiCompare();
+}
+
+function removeMpProject(name) {
+  MP_PROJECTS = MP_PROJECTS.filter(p => p !== name);
+  renderMpTags();
+  renderMultiCompare();
+}
+
+function renderMpTags() {
+  document.getElementById('mp-tags').innerHTML = MP_PROJECTS.map(p =>
+    `<span class="mp-tag">${p}
+      <button onclick="removeMpProject('${p.replace(/'/g, "\\'")}')">×</button>
+    </span>`
+  ).join('');
+}
+
+function renderMultiCompare() {
+  const empty   = document.getElementById('mp-empty');
+  const content = document.getElementById('mp-content');
+
+  if (!MP_PROJECTS.length) {
+    empty.style.display   = '';
+    content.style.display = 'none';
+    if (mpBarChart)   { mpBarChart.destroy();   mpBarChart   = null; }
+    if (mpScoreChart) { mpScoreChart.destroy(); mpScoreChart = null; }
+    return;
+  }
+
+  empty.style.display   = 'none';
+  content.style.display = '';
+
+  const statsArr = MP_PROJECTS.map(p => getProjectStats(p)).filter(Boolean);
+  document.getElementById('mp-table-meta').textContent =
+    `${statsArr.length} project${statsArr.length !== 1 ? 's' : ''} selected`;
+
+  const truncate = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
+  const labels   = statsArr.map(s => truncate(s.project, 22));
+
+  // ── Bar chart: NL PSF vs Resale PSF ──
+  if (mpBarChart) { mpBarChart.destroy(); mpBarChart = null; }
+  mpBarChart = new Chart(document.getElementById('c-mp-bar').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'New Launch PSF',
+          data: statsArr.map(s => s.nlPsf ?? 0),
+          backgroundColor: statsArr.map((_, i) => MP_COLORS[i % MP_COLORS.length]),
+          borderRadius: 4, borderSkipped: false
+        },
+        {
+          label: 'Resale PSF',
+          data: statsArr.map(s => s.rsPsf ?? 0),
+          backgroundColor: statsArr.map((_, i) => MP_COLORS[i % MP_COLORS.length] + '99'),
+          borderRadius: 4, borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      ...CHART_OPTS,
+      scales: {
+        ...CHART_OPTS.scales,
+        y: { ...CHART_OPTS.scales.y, ticks: { callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+
+  // ── Score chart: Value Score horizontal bar ──
+  const scores = statsArr.map(s =>
+    computeValueScore(s.remainingLease, s.gapPct, s.nlPsf, s.rsPsf ?? s.avgPsf, s.fairGapDelta));
+  const scoreColors = scores.map(sc => sc != null ? (sc >= 70 ? 'var(--green)' : sc >= 50 ? 'var(--orange)' : 'var(--red)') : '#94a3b8');
+
+  if (mpScoreChart) { mpScoreChart.destroy(); mpScoreChart = null; }
+  mpScoreChart = new Chart(document.getElementById('c-mp-score').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Value Score',
+        data: scores,
+        backgroundColor: scoreColors,
+        borderRadius: 4, borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: item => ` Score: ${item.raw} / 100` } }
+      },
+      scales: {
+        x: { min: 0, max: 100, grid: { color: '#eff1f5' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // ── Comparison table ──
+  const fmtAge = age => age !== null ? age + ' yr' : 'Pre-2021';
+  document.getElementById('mp-tbody').innerHTML = statsArr.map((s, i) => {
+    const sc    = scores[i];
+    const scCol = sc != null ? (sc >= 70 ? 'var(--green)' : sc >= 50 ? 'var(--orange)' : 'var(--red)') : '#94a3b8';
+
+    // Gap%: use project NL if available, else district NL benchmark
+    let gapCell;
+    if (s.gapPct !== null) {
+      gapCell = `<span class="${s.gapPct < 0 ? 'gap-pos' : 'gap-neg'}">${s.gapPct >= 0 ? '+' : ''}${s.gapPct}%</span>`;
+    } else if (s.rsPsf && s.districtNLPsf) {
+      const distGap = +((s.rsPsf - s.districtNLPsf) / s.districtNLPsf * 100).toFixed(1);
+      gapCell = `<span class="${distGap < 0 ? 'gap-pos' : 'gap-neg'}" title="vs district NL">vs dist: ${distGap >= 0 ? '+' : ''}${distGap}%</span>`;
+    } else {
+      gapCell = '—';
+    }
+
+    // Fair Value PSF & Value Delta
+    const fvCell = s.fairValuePsf ? fmtP(s.fairValuePsf) : '—';
+    let vdCell = '—';
+    if (s.fairGapDelta != null) {
+      const cls = s.fairGapDelta <= 0 ? 'gap-pos' : 'gap-neg';
+      vdCell = `<span class="${cls}">${s.fairGapDelta >= 0 ? '+' : ''}${fmtP(s.fairGapDelta)}</span>`;
+    }
+
+    // Remaining lease with estimated badge
+    let rlCell;
+    if (s.remainingLease != null) {
+      rlCell = s.remainingLease + ' yr';
+      if (!s.remainingLeaseKnown) rlCell += ' <span class="est-badge">est.</span>';
+    } else {
+      rlCell = 'N/A';
+    }
+
+    // Project name with harmonization badge
+    const projName = s.project + (s.isPostHarmonization ? ' <span class="h-badge">H</span>' : '');
+
+    // Score cell: handle null
+    const scoreCell = sc != null
+      ? `<span style="font-weight:700;color:${scCol}">${sc}</span>
+         <span class="mini-score-bg"><span class="mini-score-fill"
+           style="width:${sc}%;background:${scCol}"></span></span>`
+      : `<span style="font-weight:700;color:#94a3b8">?</span>`;
+
+    return `<tr>
+      <td class="bld" style="color:${MP_COLORS[i % MP_COLORS.length]}">${projName}</td>
+      <td class="bld">${s.avgPsf ? fmtP(s.avgPsf) : '—'}</td>
+      <td>${s.nlPsf ? fmtP(s.nlPsf) : '—'}</td>
+      <td>${s.rsPsf ? fmtP(s.rsPsf) : '—'}</td>
+      <td>${gapCell}</td>
+      <td>${fvCell}</td>
+      <td>${vdCell}</td>
+      <td>${fmtAge(s.age)}</td>
+      <td>${s.txnCount} <span class="n-badge">~${s.estUnits} est.</span></td>
+      <td>${rlCell}</td>
+      <td>${scoreCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  FEATURE 3: HYPOTHETICAL NEW LAUNCH (WHAT-IF)
+// ══════════════════════════════════════════════════════
+function updateWhatIf() {
+  const district   = document.getElementById('wf-district').value;
+  const tenureStr  = document.getElementById('wf-tenure').value;
+  const launchYear = +document.getElementById('wf-launch-year').value || CURRENT_YEAR;
+  const inputPsf   = +document.getElementById('wf-psf').value || 0;
+  const sizeKey    = document.getElementById('wf-size').value;
+  const label      = document.getElementById('wf-name').value.trim() || 'Hypothetical Launch';
+
+  const currentAge     = Math.max(0, CURRENT_YEAR - launchYear);
+  const tenureYrs      = tenureStr === 'freehold' ? null : +tenureStr;
+  const remainingLease = tenureYrs !== null ? tenureYrs - currentAge : null;
+  const decayFactor    = leaseDecayFactor(remainingLease !== null ? Math.min(remainingLease, 99) : 99);
+  const projResalePsf  = inputPsf > 0 ? Math.round(inputPsf * decayFactor) : null;
+
+  // KPI updates
+  document.getElementById('wf-rv-psf').textContent   = inputPsf > 0 ? fmtP(inputPsf) : '—';
+  document.getElementById('wf-rv-resale').textContent = projResalePsf ? fmtP(projResalePsf) : '—';
+  document.getElementById('wf-rs-resale').textContent = `decay factor × ${(decayFactor*100).toFixed(1)}%`;
+  document.getElementById('wf-rv-age').textContent    = currentAge + ' yr';
+  document.getElementById('wf-rs-age').textContent    = currentAge === 0 ? 'just launched' :
+    (currentAge === 1 ? '1 year ago' : currentAge + ' years ago');
+
+  if (tenureYrs === null) {
+    document.getElementById('wf-rv-lease').textContent = 'Freehold';
+    document.getElementById('wf-rs-lease').textContent = 'no lease expiry';
+  } else if (tenureYrs === 999) {
+    document.getElementById('wf-rv-lease').textContent = (remainingLease ?? 999) + ' yr';
+    document.getElementById('wf-rs-lease').textContent = '999-year lease';
+  } else {
+    document.getElementById('wf-rv-lease').textContent = (remainingLease ?? tenureYrs) + ' yr';
+    document.getElementById('wf-rs-lease').textContent = `of ${tenureYrs}-year lease`;
+  }
+  document.getElementById('wf-rv-decay').textContent  = (decayFactor * 100).toFixed(1) + '%';
+
+  // Is this NL post-harmonization? (launched >= 2025)
+  const isPostHarm = launchYear >= 2025;
+
+  if (inputPsf <= 0) {
+    document.getElementById('wf-no-input').style.display     = '';
+    document.getElementById('wf-section-gap').style.display  = 'none';
+    document.getElementById('wf-section-fwa').style.display  = 'none';
+    document.getElementById('wf-section-fwb').style.display  = 'none';
+    document.getElementById('wf-rv-verdict').textContent     = '—';
+    document.getElementById('wf-rb-verdict').className       = 'result-box';
+    return;
+  }
+
+  document.getElementById('wf-no-input').style.display    = 'none';
+  document.getElementById('wf-section-gap').style.display = '';
+  document.getElementById('wf-section-fwa').style.display = '';
+  document.getElementById('wf-section-fwb').style.display = '';
+
+  // Resale comps: filter by district + size + latest prices (2025-2026), group by project, top 10
+  const [sMin, sMax] = SIZE_RANGES[sizeKey] || [0, Infinity];
+  const rsFiltered   = ALL_DATA.filter(x =>
+    x.saleType === '3' &&
+    x.year >= 2025 &&
+    (district === 'all' || x.district === district) &&
+    x.size >= sMin && x.size < sMax);
+
+  const projMap = {};
+  rsFiltered.forEach(x => {
+    if (!projMap[x.project]) projMap[x.project] = { recs: [], count: 0, district: x.district, tenure: x.tenure, tenureType: x.tenureType };
+    projMap[x.project].recs.push(x);
+    projMap[x.project].count++;
+  });
+
+  const comps = Object.entries(projMap)
+    .filter(([, v]) => v.recs.length >= MIN_LATEST)
+    .map(([proj, v]) => {
+      const avgRsPsf = getLatestPsf(v.recs) || Math.round(avg(v.recs.map(r => r.psf)));
+      const compAge = getProjectAge(proj);
+      const compLease = estimateRemainingLease(proj);
+      const compRemLease = compLease ? compLease.years : null;
+      const compLeaseEst = compLease ? compLease.estimated : true;
+      // Derive comp launch year from PROJECT_LAUNCH_YEAR or estimate
+      const compLaunchYear = PROJECT_LAUNCH_YEAR[proj] || null;
+      return {
+        project: proj, avgRsPsf, count: v.count,
+        tenure: v.tenure, tenureType: v.tenureType,
+        age: compAge, remLease: compRemLease, leaseEst: compLeaseEst,
+        launchYear: compLaunchYear
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  // Verdict
+  const distAvg = comps.length ? avg(comps.map(c => c.avgRsPsf)) : null;
+  if (distAvg) {
+    const gap = (inputPsf - distAvg) / distAvg * 100;
+    let verdict, cls;
+    if      (gap > 15)  { verdict = 'Overpriced';    cls = 'bad';  }
+    else if (gap > 5)   { verdict = 'Slightly High';  cls = 'warn'; }
+    else if (gap >= -5) { verdict = 'Fair Value';     cls = 'good'; }
+    else                { verdict = 'Underpriced';    cls = 'good'; }
+    document.getElementById('wf-rv-verdict').textContent = verdict;
+    document.getElementById('wf-rs-verdict').textContent =
+      `${gap >= 0 ? '+' : ''}${gap.toFixed(1)}% vs avg resale ${fmtP(Math.round(distAvg))}`;
+    document.getElementById('wf-rb-verdict').className = 'result-box ' + cls;
+  } else {
+    document.getElementById('wf-rv-verdict').textContent = '—';
+    document.getElementById('wf-rs-verdict').textContent = 'no comp data';
+    document.getElementById('wf-rb-verdict').className   = 'result-box';
+  }
+
+  renderWhatIfChart(label, inputPsf, comps);
+  renderWhatIfGapTable(label, inputPsf, launchYear, isPostHarm, comps);
+  renderWhatIfFwA(inputPsf, remainingLease, comps);
+  renderWhatIfFwB(inputPsf, launchYear, isPostHarm, comps);
+}
+
+function renderWhatIfChart(label, inputPsf, comps) {
+  if (wfChart) { wfChart.destroy(); wfChart = null; }
+  if (!comps.length) return;
+
+  const truncate = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
+  const labels   = [truncate(label, 24), ...comps.map(c => truncate(c.project, 24))];
+  const psfs     = [inputPsf, ...comps.map(c => c.avgRsPsf)];
+  const colors   = ['#C0392B', ...comps.map(() => '#2c4a8c')];
+
+  wfChart = new Chart(document.getElementById('c-wf-bar').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'PSF',
+        data: psfs,
+        backgroundColor: colors,
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => {
+              if (item.dataIndex === 0) return ` Hypothetical NL: ${fmtP(item.raw)}`;
+              const c = comps[item.dataIndex - 1];
+              return ` Resale Avg: ${fmtP(item.raw)} (n=${c.count})`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#eff1f5' }, ticks: { font: { size: 11 }, callback: v => '$' + v.toLocaleString() } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ── Gap Table: Raw + Harmonization-Adjusted ──
+function renderWhatIfGapTable(label, inputPsf, nlLaunchYear, isPostHarm, comps) {
+  const nlRemLease = 99 - (CURRENT_YEAR - nlLaunchYear);
+  const fmtLY = ly => ly ? `99yr from ${ly}` : 'est.';
+
+  const hypRow = `<tr class="wf-highlight-row">
+    <td class="bld">🔮 ${label}${isPostHarm ? ' <span class="h-badge">H</span>' : ''}</td>
+    <td class="bld">${fmtP(inputPsf)}</td>
+    <td>${fmtLY(nlLaunchYear)}</td>
+    <td>${nlRemLease} yr</td>
+    <td>—</td><td>—</td><td>—</td>
+  </tr>`;
+
+  const compRows = comps.map(c => {
+    // Raw gap
+    const rawGap = c.avgRsPsf - inputPsf;
+    const rawGapPct = (rawGap / inputPsf * 100).toFixed(1);
+    const rawCls = rawGap < 0 ? 'gap-pos' : 'gap-neg';
+
+    // Harmonization-adjusted: if NL is post-harm, comp's effective PSF is 5% less (NL has more space)
+    // So adjusted comparison: NL effective PSF = inputPsf * 0.95 (NL worth more per PSF)
+    // Or equivalently: comp needs to be compared against inputPsf * 0.95
+    const adjNLPsf = isPostHarm ? Math.round(inputPsf * 0.95) : inputPsf;
+    const adjGap = c.avgRsPsf - adjNLPsf;
+    const adjGapPct = (adjGap / adjNLPsf * 100).toFixed(1);
+    const adjCls = adjGap < 0 ? 'gap-pos' : 'gap-neg';
+
+    return `<tr>
+      <td class="bld">${c.project}</td>
+      <td>${fmtP(c.avgRsPsf)}</td>
+      <td>${fmtLY(c.launchYear)}</td>
+      <td>${c.remLease != null ? c.remLease + ' yr' : '~84 yr'}${c.leaseEst ? ' <span class="est-badge">est.</span>' : ''}</td>
+      <td><span class="${rawCls}">${rawGap >= 0 ? '+' : ''}${fmtP(rawGap)} (${rawGap >= 0 ? '+' : ''}${rawGapPct}%)</span></td>
+      <td>${isPostHarm
+        ? `<span class="${adjCls}">${adjGap >= 0 ? '+' : ''}${fmtP(adjGap)} (${adjGap >= 0 ? '+' : ''}${adjGapPct}%)</span><br><span style="font-size:10px;color:var(--muted)">NL adj. to ${fmtP(adjNLPsf)}</span>`
+        : '<span class="n-badge">N/A — pre-harm NL</span>'}</td>
+      <td>${c.count}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('wf-tbody').innerHTML = hypRow + compRows;
+  document.getElementById('wf-table-meta').textContent =
+    `${comps.length} comp${comps.length !== 1 ? 's' : ''} · ${isPostHarm ? 'Post-harmonization NL (+5% usable space)' : 'Pre-harmonization NL'}`;
+}
+
+// ── Framework A: Price Reset (Implied NL PSF) ──
+function renderWhatIfFwA(inputPsf, nlRemLease, comps) {
+  const tbody = document.getElementById('wf-fwa-tbody');
+  if (!comps.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No comparable data.</td></tr>'; return; }
+
+  tbody.innerHTML = comps.map(c => {
+    if (!c.remLease) return `<tr>
+      <td class="bld">${c.project}</td>
+      <td>${fmtP(c.avgRsPsf)}</td><td>—</td><td>—</td><td>—</td>
+      <td><span class="n-badge">no lease data</span></td>
+    </tr>`;
+
+    // Price Reset: resalePSF / remainingLease * 99 = implied NL PSF
+    const impliedNL = Math.round(c.avgRsPsf / c.remLease * 99);
+    const diff = impliedNL - inputPsf;
+    const diffPct = (diff / inputPsf * 100).toFixed(1);
+    const isValue = diff <= 0; // implied NL < actual NL → resale is cheap
+    const cls = isValue ? 'gap-pos' : 'gap-neg';
+    const verdict = isValue ? '✓ Resale has value' : '✗ Resale expensive';
+    const vCls = isValue ? 'good' : 'warn';
+
+    return `<tr>
+      <td class="bld">${c.project}</td>
+      <td>${fmtP(c.avgRsPsf)}</td>
+      <td>${c.remLease} yr${c.leaseEst ? ' <span class="est-badge">est.</span>' : ''}</td>
+      <td class="bld">${fmtP(impliedNL)}</td>
+      <td><span class="${cls}">${diff >= 0 ? '+' : ''}${fmtP(diff)} (${diff >= 0 ? '+' : ''}${diffPct}%)</span></td>
+      <td><span class="badge" style="background:${isValue ? '#dcfce7;color:#15803d' : '#fff7ed;color:#c2410c'}">${verdict}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Framework B: $50/yr Gap Rule ──
+function renderWhatIfFwB(inputPsf, nlLaunchYear, isPostHarm, comps) {
+  const tbody = document.getElementById('wf-fwb-tbody');
+  if (!comps.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No comparable data.</td></tr>'; return; }
+
+  // NL lease: 99 years from nlLaunchYear
+  const nlLeaseStart = nlLaunchYear;
+
+  tbody.innerHTML = comps.map(c => {
+    // Comp lease start year (from PROJECT_LAUNCH_YEAR or estimated)
+    const compLeaseStart = c.launchYear || (CURRENT_YEAR - (99 - (c.remLease || 84)));
+    // Age gap = difference in lease start years
+    const ageGap = Math.abs(nlLeaseStart - compLeaseStart);
+
+    if (!c.remLease && !c.launchYear) return `<tr>
+      <td class="bld">${c.project}</td>
+      <td>${fmtP(c.avgRsPsf)}</td><td>~${ageGap} yr</td><td>—</td><td>—</td><td>—</td><td>—</td>
+    </tr>`;
+
+    // Expected NL premium over comp = $50 × age gap
+    const premium = 50 * ageGap;
+    // Justified NL PSF = comp resale PSF + premium
+    const justifiedNL = c.avgRsPsf + premium;
+    // Post-harmonization: NL has 5% more usable space, so justified NL += 5%
+    const justifiedNLHarm = isPostHarm ? Math.round(justifiedNL * 1.05) : justifiedNL;
+    // Value = justified NL - actual NL (positive = NL has value / is underpriced)
+    const value = justifiedNLHarm - inputPsf;
+    const valuePct = (value / inputPsf * 100).toFixed(1);
+    const isValue = value > 0;
+    const cls = isValue ? 'gap-pos' : 'gap-neg';
+
+    return `<tr>
+      <td class="bld">${c.project}</td>
+      <td>${fmtP(c.avgRsPsf)}</td>
+      <td>${ageGap} yr</td>
+      <td>${fmtP(premium)}</td>
+      <td>${fmtP(justifiedNL)}</td>
+      <td>${isPostHarm
+        ? `${fmtP(justifiedNLHarm)} <span style="font-size:10px;color:var(--muted)">(+5%)</span>`
+        : '<span class="n-badge">N/A</span>'}</td>
+      <td><span class="${cls}" style="font-weight:700">${value >= 0 ? '+' : ''}${fmtP(value)} (${value >= 0 ? '+' : ''}${valuePct}%)</span>
+        <br><span style="font-size:10px;color:var(--muted)">${isValue ? '✓ NL has value' : '✗ NL overpriced'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  EVENT WIRING
+// ══════════════════════════════════════════════════════
+function wireEvents() {
+  ['f-district','f-bedroom','f-size','f-year','f-segment','f-age','f-project'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateAll);
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    ['f-district','f-bedroom','f-size','f-year','f-segment','f-age','f-project'].forEach(id => {
+      document.getElementById(id).value = 'all';
+    });
+    document.getElementById('f-project-input').value = '';
+    updateAll();
+  });
+
+  // Searchable project input
+  const projInput = document.getElementById('f-project-input');
+  const projSelect = document.getElementById('f-project');
+  const allProjectNames = [...projSelect.options].slice(1).map(o => o.value); // skip "All Projects"
+  projInput.addEventListener('input', () => {
+    const typed = projInput.value.trim();
+    if (!typed) {
+      projSelect.value = 'all';
+      projSelect.dispatchEvent(new Event('change'));
+      return;
+    }
+    // Exact match (case-insensitive)
+    const exact = allProjectNames.find(p => p.toUpperCase() === typed.toUpperCase());
+    if (exact) {
+      projSelect.value = exact;
+      projSelect.dispatchEvent(new Event('change'));
+    }
+  });
+  projInput.addEventListener('change', () => {
+    // datalist selection fires 'change'
+    const typed = projInput.value.trim();
+    const exact = allProjectNames.find(p => p === typed || p.toUpperCase() === typed.toUpperCase());
+    if (exact) {
+      projSelect.value = exact;
+      projSelect.dispatchEvent(new Event('change'));
+    }
+  });
+
+  ['c-district','c-bedroom','c-leaselen'].forEach(id => {
+    document.getElementById(id).addEventListener('change', updateCalculator);
+  });
+
+  // Feature 1: Comps Finder
+  document.getElementById('f-project').addEventListener('change', e => {
+    const v = e.target.value;
+    if (v !== 'all') findComps(v);
+    else {
+      document.getElementById('comps-results').style.display = 'none';
+      document.getElementById('comps-prompt-card').style.display = '';
+    }
+  });
+  document.getElementById('btn-find-comps').addEventListener('click', () => {
+    const v = document.getElementById('f-project').value;
+    if (v !== 'all') findComps(v);
+  });
+
+  // Feature 2: Multi-Project Compare
+  document.getElementById('btn-mp-add').addEventListener('click', () =>
+    addMpProject(document.getElementById('mp-search').value.trim()));
+  document.getElementById('mp-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addMpProject(e.target.value.trim());
+  });
+  document.getElementById('btn-mp-clear').addEventListener('click', () => {
+    MP_PROJECTS = [];
+    renderMpTags();
+    renderMultiCompare();
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+(async function init() {
+  const banner = document.getElementById('data-banner');
+
+  const ok = await tryLoadRealData();
+  if (!ok) {
+    banner.className  = 'data-banner error';
+    banner.innerHTML  = '❌ <strong>ura_data.js not found.</strong> Run <code>fetch_ura_data.py</code> and place the file in this folder, then refresh.';
+    document.getElementById('no-data-state').style.display = '';
+    document.getElementById('footer').style.display        = '';
+    return;
+  }
+
+  ALL_DATA = parseRows(window.URA_DATA);
+  buildProjectAgeMap(ALL_DATA);
+  clearDistrictNLCache();
+  Object.keys(_leaseCache).forEach(k => delete _leaseCache[k]);
+  const yrs = [...new Set(ALL_DATA.map(x => x.year))].sort();
+
+  banner.className = 'data-banner real';
+  banner.innerHTML = `✅ Loaded <strong>${ALL_DATA.length.toLocaleString()} URA transactions</strong> (${Math.min(...yrs)}–${Math.max(...yrs)}) · Comparing New Sale vs Resale PSF by district.`;
+
+  document.getElementById('src-badge').textContent = `✅ ${ALL_DATA.length.toLocaleString()} txns`;
+  document.getElementById('src-badge').classList.add('real');
+
+  populateFilters(ALL_DATA);
+  wireEvents();
+
+  document.getElementById('main-content').style.display = '';
+  document.getElementById('footer').style.display       = '';
+
+  updateAll();
+  populateMpDatalist();
+  initTabs();
+  updateWhatIf();
+})();
+</script>
+</body>
+</html>
