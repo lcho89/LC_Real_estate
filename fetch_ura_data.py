@@ -292,7 +292,7 @@ def main():
             "size","psf","transactionValue","year","month",
             "marketSegment","propertyType","floorRange","saleType"]
     rows = [[r.get(c,"") for c in cols] for r in all_records]
-    compact = {"cols": cols, "rows": rows}
+    compact = {"cols": cols, "rows": rows, "fetchedAt": fetched_at}
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(f"// URA Real Data — {fetched_at} — {len(all_records)} records\n")
@@ -305,6 +305,10 @@ def main():
     print("  Next step:")
     print(f"   Place '{output_path}' in the same folder as index.html")
     print("   Then open (or refresh) index.html — it will load automatically.")
+    print()
+    print("  Refresh cadence:")
+    print("   URA publishes on a monthly cycle — re-run this on the 1st of each month.")
+    print("   The dashboard flags the data as stale once it is a month old.")
     print()
 
 

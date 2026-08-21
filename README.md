@@ -8,7 +8,7 @@ Interactive dashboard for analysing Singapore private residential property trans
 
 ## What it shows
 
-- PSF price trends (2021–2026) by bedroom type
+- PSF price trends by bedroom type (full history returned by URA)
 - Freehold vs Leasehold price comparison
 - Transaction volume by tenure, district, and bedroom
 - Top projects by average PSF
@@ -20,9 +20,9 @@ Interactive dashboard for analysing Singapore private residential property trans
 
 | File | Description |
 |------|-------------|
-| `Netlify upload_property/index.html` | Main dashboard — open this in a browser |
-| `House/sg-condo-dashboard.html` | Alternate version of the dashboard |
-| `House/price-gap-dashboard.html` | Price gap analysis dashboard |
+| `index.html` | Main dashboard — open this in a browser |
+| `dashboards/sg-condo-dashboard.html` | Alternate version of the dashboard |
+| `dashboards/price-gap-dashboard.html` | Price gap analysis dashboard |
 | `fetch_ura_data.py` | Script to pull fresh data from URA API |
 | `ura_data.js` | *(not in repo — generated locally, see below)* |
 
@@ -73,6 +73,29 @@ python fetch_ura_data.py --key YOUR_KEY --token YOUR_TOKEN --out path/to/ura_dat
 ### Step 4 — Open the dashboard
 
 Place `ura_data.js` in the same folder as `index.html`, then open `index.html` in your browser. The real data loads automatically.
+
+## Monthly refresh
+
+URA publishes on a monthly cycle, so the dashboard is refreshed on the **1st of each month**.
+
+A scheduled Claude routine fires at **09:00 SGT on the 1st** and walks through the steps
+below. It cannot run fully unattended — URA issues a **new token every day**, so the key
+and token still have to be supplied at run time.
+
+1. Generate today's token:
+   `GET https://eservice.ura.gov.sg/uraDataService/insertNewToken/v1` with header `AccessKey: <your-key>`
+2. `python fetch_ura_data.py --key YOUR_KEY --token TODAYS_TOKEN`
+3. Refresh `index.html` (or re-upload the folder to Netlify)
+
+The dashboard tracks its own freshness: `fetch_ura_data.py` stamps the pull date into
+`ura_data.js`, and the banner shows **"Data as of YYYY-MM-DD"**. Once the data is a month
+or more old the banner adds an amber **"N months old — run fetch_ura_data.py to refresh"**
+flag, so a missed refresh is visible on the dashboard itself.
+
+The year coverage is derived from the data at load time — no year is hardcoded, so the
+header range and the Year filter extend on their own as new transactions arrive.
+
+---
 
 ### Deploying to Netlify
 

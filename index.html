@@ -32,6 +32,7 @@
     .data-banner.real    { background:#f0fdf4; color:#166534; border-bottom:1px solid #bbf7d0; }
     .data-banner.loading { background:#eff6ff; color:#1e40af; border-bottom:1px solid #bfdbfe; }
     .banner-link { color:inherit; font-weight:700; cursor:pointer; text-decoration:underline; }
+    .stale-flag  { color:#92400e; background:#fef3c7; font-weight:700; padding:1px 7px; border-radius:10px; }
 
     /* ── MAIN ── */
     .main { max-width:1600px; margin:0 auto; padding:20px 26px; }
@@ -143,7 +144,7 @@
     <span style="font-size:28px">🏙️</span>
     <div>
       <h1>Singapore Condo Price Tracker</h1>
-      <p>PSF &amp; transaction analytics · District · Project · Bedroom · Tenure · 2020–2025</p>
+      <p id="header-sub">PSF &amp; transaction analytics · District · Project · Bedroom · Tenure</p>
     </div>
   </div>
   <div class="hbadges">
@@ -466,7 +467,21 @@ const SAMPLE_PROJECTS = [
 ];
 const BR_SIZES = {"Studio":[400,540],"1-Bedroom":[500,660],"2-Bedroom":[650,960],"3-Bedroom":[960,1420],"4-Bedroom":[1420,2050],"5-Bedroom":[2050,2800],"Penthouse":[2200,5000]};
 const BR_MULT  = {"Studio":1.08,"1-Bedroom":1.05,"2-Bedroom":1.00,"3-Bedroom":0.95,"4-Bedroom":0.90,"5-Bedroom":0.88,"Penthouse":1.15};
-const YR_TREND = {2020:1.000,2021:1.050,2022:1.125,2023:1.180,2024:1.230,2025:1.260};
+// Calibrated PSF index through 2025; extended automatically for later years so the
+// sample series never falls behind the current calendar year.
+const YR_TREND_BASE = {2020:1.000,2021:1.050,2022:1.125,2023:1.180,2024:1.230,2025:1.260};
+const YR_DRIFT      = 0.025;   // assumed ~2.5% p.a. beyond the calibrated range
+const NOW_YEAR      = new Date().getFullYear();
+const NOW_MONTH     = new Date().getMonth() + 1;
+const YR_TREND = (() => {
+  const t = Object.assign({}, YR_TREND_BASE);
+  const lastCalibrated = Math.max(...Object.keys(t).map(Number));
+  for (let y = lastCalibrated + 1; y <= NOW_YEAR; y++) {
+    t[y] = +(t[y-1] * (1 + YR_DRIFT)).toFixed(3);
+  }
+  return t;
+})();
+const SAMPLE_YEARS = Object.keys(YR_TREND).map(Number).sort((a,b)=>a-b);
 const BRS      = ["Studio","1-Bedroom","2-Bedroom","3-Bedroom","4-Bedroom","5-Bedroom","Penthouse"];
 const BRP      = [0.08,0.18,0.40,0.65,0.88,1.00];
 
@@ -491,8 +506,8 @@ function generateSampleData() {
     const n = Math.floor(rng()*22)+14;
     for(let i=0;i<n;i++){
       const r=rng(); const br=BRS[BRP.findIndex(p=>r<p)];
-      const yr=[2020,2021,2022,2023,2024,2025][Math.floor(rng()*6)];
-      const mo=Math.ceil(rng()*12);
+      const yr=SAMPLE_YEARS[Math.floor(rng()*SAMPLE_YEARS.length)];
+      const mo=Math.ceil(rng()*(yr===NOW_YEAR?NOW_MONTH:12));
       const [lo,hi]=BR_SIZES[br];
       const size=Math.round(lo+rng()*(hi-lo));
       const psf=Math.round(proj.p*YR_TREND[yr]*BR_MULT[br]*(0.83+rng()*0.34)/10)*10;
@@ -529,8 +544,11 @@ function getYears(data) { return [...new Set((data||ACTIVE_DATA).map(x=>x.year))
 // ══════════════════════════════════════════════════════
 //  REAL-DATA LOADER
 // ══════════════════════════════════════════════════════
+let DATA_FETCHED_AT = null;   // 'YYYY-MM-DD' stamped in by fetch_ura_data.py
+
 function decodeURAData(d) {
   const SALE_MAP = {'1':'New Sale','2':'Sub-sale','3':'Resale'};
+  if (d && d.fetchedAt) DATA_FETCHED_AT = d.fetchedAt;
   function fix(o) { if (SALE_MAP[o.saleType]) o.saleType = SALE_MAP[o.saleType]; return o; }
   if (Array.isArray(d)) { d.forEach(fix); return d; }
   if (d && d.cols && d.rows) {
@@ -571,6 +589,35 @@ function retryLoadRealData() {
   });
 }
 
+// Whole months elapsed since the data was pulled from URA.
+function monthsSinceFetch() {
+  if (!DATA_FETCHED_AT) return null;
+  const d = new Date(DATA_FETCHED_AT + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const now = new Date();
+  let m = (now.getFullYear()-d.getFullYear())*12 + (now.getMonth()-d.getMonth());
+  if (now.getDate() < d.getDate()) m--;
+  return Math.max(0, m);
+}
+
+// URA publishes on a monthly cycle, so anything a month or more old is due a refresh.
+function freshnessNote() {
+  if (!DATA_FETCHED_AT) return '';
+  const m = monthsSinceFetch();
+  const asOf = ` · Data as of <strong>${DATA_FETCHED_AT}</strong>`;
+  if (m === null || m < 1) return asOf;
+  const age = m === 1 ? '1 month' : `${m} months`;
+  return `${asOf} · <span class="stale-flag">⚠️ ${age} old — run fetch_ura_data.py to refresh</span>`;
+}
+
+// Keep the header's coverage range in step with whatever data is loaded.
+function updateHeaderRange() {
+  const yrs = getYears();
+  const el  = document.getElementById('header-sub');
+  if (!el || !yrs.length) return;
+  el.textContent = `PSF & transaction analytics · District · Project · Bedroom · Tenure · ${Math.min(...yrs)}–${Math.max(...yrs)}`;
+}
+
 function activateRealData(data) {
   ACTIVE_DATA = data;
   IS_REAL     = true;
@@ -579,11 +626,12 @@ function activateRealData(data) {
   const b = document.getElementById('data-banner');
   b.className = 'data-banner real';
   const yrs = getYears();
-  b.innerHTML = `✅ Loaded <strong>${data.length.toLocaleString()} real URA transactions</strong> (${Math.min(...yrs)}–${Math.max(...yrs)}) · Bedroom type inferred from floor area.`;
+  b.innerHTML = `✅ Loaded <strong>${data.length.toLocaleString()} real URA transactions</strong> (${Math.min(...yrs)}–${Math.max(...yrs)}) · Bedroom type inferred from floor area.${freshnessNote()}`;
   // Show URA-only filters
   document.querySelectorAll('.fg.ura-only').forEach(el => el.classList.add('visible'));
   document.querySelectorAll('.col-ura').forEach(el => el.style.display = '');
   initFilters();
+  updateHeaderRange();
   update();
 }
 
@@ -678,6 +726,7 @@ async function browserFetch() {
   if (!all.length) { setMsg('err','No records returned. Token may have expired — generate a fresh one.'); return; }
   setMsg('ok', `✓ Loaded ${all.length.toLocaleString()} transactions.`);
   window.URA_DATA = all;
+  DATA_FETCHED_AT = new Date().toISOString().slice(0,10);   // fetched live, so it is current
   activateRealData(all);
   setTimeout(closeModal, 1200);
 }
@@ -1011,6 +1060,7 @@ document.getElementById('btn-connect').addEventListener('click', openModal);
 // ══════════════════════════════════════════════════════
 (async function init() {
   initFilters();
+  updateHeaderRange();
   update(); // start with sample data immediately
 
   // Try to load real data in background
