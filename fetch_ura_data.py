@@ -249,7 +249,14 @@ def main():
         print("Error: Both Access Key and Token are required.")
         sys.exit(1)
 
-    headers = {"AccessKey": access_key, "Token": token}
+    # URA sits behind a WAF that drops default tool user-agents (including
+    # requests' own), so present a normal browser one.
+    headers = {
+        "AccessKey": access_key,
+        "Token": token,
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"),
+    }
     batches = [int(b.strip()) for b in args.batches.split(",") if b.strip().isdigit()]
 
     # Fetch all batches

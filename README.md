@@ -23,7 +23,8 @@ Interactive dashboard for analysing Singapore private residential property trans
 | `index.html` | Main dashboard — open this in a browser |
 | `dashboards/sg-condo-dashboard.html` | Alternate version of the dashboard |
 | `dashboards/price-gap-dashboard.html` | Price gap analysis dashboard |
-| `fetch_ura_data.py` | Script to pull fresh data from URA API |
+| `fetch_ura_data.py` | Script to pull fresh data from URA API (Python) |
+| `Fetch-UraData.ps1` | Same fetch, native PowerShell — no Python needed (Windows) |
 | `ura_data.js` | *(not in repo — generated locally, see below)* |
 
 ---
@@ -50,6 +51,25 @@ Headers: AccessKey: <your-access-key>
 Or use the Python script — it will prompt you for both.
 
 ### Step 3 — Run the fetch script
+
+**Windows (PowerShell) — no Python required:**
+
+```powershell
+.\Fetch-UraData.ps1 -Key YOUR_ACCESS_KEY
+```
+
+That is the whole thing: with only `-Key` it generates today's token itself, so
+Step 2 above can be skipped. Pass `-Token` explicitly if you already have one.
+Output is identical to the Python script's.
+
+If PowerShell refuses to run the file, its execution policy is blocking local
+scripts. Allow them for the current session only:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+**macOS / Linux (Python):**
 
 ```bash
 pip install requests
@@ -78,14 +98,21 @@ Place `ura_data.js` in the same folder as `index.html`, then open `index.html` i
 
 URA publishes on a monthly cycle, so the dashboard is refreshed on the **1st of each month**.
 
-A scheduled Claude routine fires at **09:00 SGT on the 1st** and walks through the steps
-below. It cannot run fully unattended — URA issues a **new token every day**, so the key
-and token still have to be supplied at run time.
+A scheduled Claude routine fires at **09:00 SGT on the 1st** as a reminder. The fetch
+itself cannot run unattended — the URA Access Key is not stored in this repo.
 
-1. Generate today's token:
-   `GET https://eservice.ura.gov.sg/uraDataService/insertNewToken/v1` with header `AccessKey: <your-key>`
-2. `python fetch_ura_data.py --key YOUR_KEY --token TODAYS_TOKEN`
-3. Refresh `index.html` (or re-upload the folder to Netlify)
+On Windows, the whole refresh is one command:
+
+```powershell
+.\Fetch-UraData.ps1 -Key YOUR_ACCESS_KEY
+```
+
+Elsewhere, generate a token first
+(`GET https://eservice.ura.gov.sg/uraDataService/insertNewToken/v1` with header
+`AccessKey: <your-key>`), then run
+`python fetch_ura_data.py --key YOUR_KEY --token TODAYS_TOKEN`.
+
+Either way, refresh `index.html` afterwards, or re-upload the folder to Netlify.
 
 The dashboard tracks its own freshness: `fetch_ura_data.py` stamps the pull date into
 `ura_data.js`, and the banner shows **"Data as of YYYY-MM-DD"**. Once the data is a month
@@ -112,3 +139,7 @@ https://eservice.ura.gov.sg/maps/api/
 Data covers private residential transactions (Condominium, Apartment, Executive Condominium).
 
 API registration is free. A new token must be generated each day.
+
+URA sits behind a web application firewall that rejects default tool user-agents
+(plain `curl`, `requests`), returning an HTML block page instead of JSON. Both
+fetch scripts send a browser user-agent to get through it.
