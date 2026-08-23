@@ -44,6 +44,30 @@
     .fg select { padding:6px 24px 6px 9px; border:1.5px solid var(--border); border-radius:7px; font-size:12.5px; color:var(--text); background:#fff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 5px center/14px; appearance:none; transition:border-color .15s; }
     .fg select:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
     .fg select.wide { min-width:185px; }
+    /* Project type-ahead — replaces a select that held ~2,400 options. */
+    .combo { position:relative; }
+    .combo-input { width:100%; padding:6px 26px 6px 28px; border:1.5px solid var(--border); border-radius:7px;
+                   font-size:12.5px; color:var(--text); background:#fff
+                   url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3ccircle cx='9' cy='9' r='5.5' stroke='%235a6a8a' stroke-width='1.6'/%3e%3cpath stroke='%235a6a8a' stroke-linecap='round' stroke-width='1.6' d='M13.5 13.5 17 17'/%3e%3c/svg%3e")
+                   no-repeat left 7px center/14px; transition:border-color .15s; }
+    .combo-input:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(44,74,140,.1); }
+    .combo-input.has-value { font-weight:600; }
+    .combo-clear { position:absolute; top:50%; right:6px; transform:translateY(-50%); width:17px; height:17px;
+                   display:flex; align-items:center; justify-content:center; border:0; border-radius:50%;
+                   background:var(--border); color:var(--muted); font-size:13px; line-height:1; cursor:pointer; padding:0; }
+    .combo-clear:hover { background:var(--red); color:#fff; }
+    /* display:flex above would otherwise beat the UA rule for [hidden]. */
+    .combo-clear[hidden] { display:none; }
+    .combo-list { position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; margin:0; padding:4px;
+                  list-style:none; max-height:290px; overflow-y:auto; background:#fff; border:1.5px solid var(--border);
+                  border-radius:9px; box-shadow:0 8px 22px rgba(26,39,68,.16); }
+    .combo-opt { padding:6px 9px; border-radius:6px; font-size:12.5px; color:var(--text); cursor:pointer;
+                 display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .combo-opt:hover, .combo-opt.active { background:var(--lblue); }
+    .combo-opt mark { background:#fde68a; color:inherit; border-radius:2px; padding:0 1px; }
+    .combo-meta { font-size:10.5px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+    .combo-empty { padding:10px; font-size:12px; color:var(--muted); text-align:center; }
+    .combo-more { padding:6px 9px; font-size:10.5px; color:var(--muted); border-top:1px solid var(--border); margin-top:3px; }
     .fg.ura-only { display:none; }
     .fg.ura-only.visible { display:flex; }
     .btn-reset { padding:6px 13px; background:var(--bg); border:1.5px solid var(--border); border-radius:7px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; align-self:flex-end; }
@@ -235,9 +259,17 @@
         <option>Condominium</option><option>Apartment</option><option>Executive Condominium</option>
       </select>
     </div>
-    <div class="fg" style="min-width:180px;">
-      <label>Project</label>
-      <select id="f-project" class="wide"><option value="all">All Projects</option></select>
+    <div class="fg" style="min-width:300px;flex:1 1 300px;max-width:420px;">
+      <label for="f-project-search">Project</label>
+      <div class="combo">
+        <input type="text" id="f-project-search" class="combo-input" placeholder="Search projects…"
+               autocomplete="off" role="combobox" aria-expanded="false"
+               aria-controls="f-project-list" aria-autocomplete="list">
+        <button type="button" class="combo-clear" id="f-project-clear" aria-label="Clear project filter" hidden>&times;</button>
+        <ul class="combo-list" id="f-project-list" role="listbox" aria-label="Matching projects" hidden></ul>
+      </div>
+      <!-- Holds the committed value; the rest of the app still reads #f-project. -->
+      <input type="hidden" id="f-project" value="all">
     </div>
     <button class="btn-reset" id="btn-reset">↺ Reset</button>
   </div>
@@ -760,14 +792,182 @@ function initFilters() {
   });
   ts.value = curT;
 
-  // Project
-  const ps = document.getElementById('f-project');
-  const curP = ps.value;
-  ps.innerHTML = '<option value="all">All Projects</option>';
-  [...new Set(ACTIVE_DATA.map(x=>x.project))].sort().forEach(v=>{
-    const o=document.createElement('option'); o.value=o.textContent=v; ps.appendChild(o);
+  // Project — a type-ahead rather than a select; see buildProjectIndex().
+  buildProjectIndex();
+}
+
+// ══════════════════════════════════════════════════════
+//  PROJECT SEARCH (type-ahead)
+// ══════════════════════════════════════════════════════
+// A plain <select> held ~2,400 options and was unusable. This keeps the
+// committed value in the hidden #f-project input so getFiltered(), the reset
+// button and the change-event wiring all keep working unchanged.
+
+const PROJ_LIMIT = 60;          // rows rendered per query
+let PROJECT_INDEX = [];         // [{name, lower, count, districts}]
+let projMatches   = [];
+let projActive    = -1;
+
+function buildProjectIndex() {
+  const m = new Map();
+  for (const x of ACTIVE_DATA) {
+    if (!x.project) continue;
+    let e = m.get(x.project);
+    if (!e) { e = { name:x.project, lower:x.project.toLowerCase(), count:0, districts:new Set() }; m.set(x.project, e); }
+    e.count++;
+    if (x.district) e.districts.add(x.district);
+  }
+  PROJECT_INDEX = [...m.values()].sort((a,b) => a.name.localeCompare(b.name));
+
+  // Drop a committed project that the newly loaded data no longer contains.
+  const hidden = document.getElementById('f-project');
+  if (hidden.value !== 'all' && !m.has(hidden.value)) setProject('all', { silent:true });
+
+  const input = document.getElementById('f-project-search');
+  if (input) input.placeholder = `Search ${PROJECT_INDEX.length.toLocaleString()} projects…`;
+}
+
+// Prefix matches rank above interior ones; otherwise alphabetical.
+function matchProjects(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return PROJECT_INDEX;
+  const starts = [], contains = [];
+  for (const p of PROJECT_INDEX) {
+    const i = p.lower.indexOf(q);
+    if (i === 0)     starts.push(p);
+    else if (i > 0)  contains.push(p);
+  }
+  return starts.concat(contains);
+}
+
+const escHtml = t => t.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function highlight(name, query) {
+  const q = query.trim();
+  if (!q) return escHtml(name);
+  const i = name.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return escHtml(name);
+  return escHtml(name.slice(0, i)) + '<mark>' + escHtml(name.slice(i, i + q.length)) + '</mark>' + escHtml(name.slice(i + q.length));
+}
+
+function renderProjectList(query) {
+  const list = document.getElementById('f-project-list');
+  const all  = matchProjects(query);
+  projMatches = all.slice(0, PROJ_LIMIT);
+  projActive  = -1;
+
+  if (!all.length) {
+    list.innerHTML = `<li class="combo-empty">No project matches “${escHtml(query.trim())}”</li>`;
+    return;
+  }
+
+  const rows = projMatches.map((p, i) => {
+    const ds = [...p.districts].sort();
+    const meta = `${p.count.toLocaleString()} txn${p.count === 1 ? '' : 's'} · ${ds.length > 2 ? ds.length + ' districts' : ds.join(', ')}`;
+    return `<li class="combo-opt" role="option" id="proj-opt-${i}" aria-selected="false" data-i="${i}">` +
+           `<span>${highlight(p.name, query)}</span><span class="combo-meta">${meta}</span></li>`;
   });
-  ps.value = curP;
+  if (all.length > projMatches.length) {
+    rows.push(`<li class="combo-more">${(all.length - projMatches.length).toLocaleString()} more — keep typing to narrow</li>`);
+  }
+  list.innerHTML = rows.join('');
+}
+
+function openProjectList(query) {
+  renderProjectList(query);
+  const list = document.getElementById('f-project-list');
+  list.hidden = false;
+  document.getElementById('f-project-search').setAttribute('aria-expanded', 'true');
+}
+
+function closeProjectList() {
+  const list = document.getElementById('f-project-list');
+  list.hidden = true;
+  projActive = -1;
+  const input = document.getElementById('f-project-search');
+  input.setAttribute('aria-expanded', 'false');
+  input.removeAttribute('aria-activedescendant');
+}
+
+function setProjectActive(i) {
+  const list = document.getElementById('f-project-list');
+  const opts = [...list.querySelectorAll('.combo-opt')];
+  if (!opts.length) return;
+  projActive = (i + opts.length) % opts.length;
+  opts.forEach((el, n) => {
+    const on = n === projActive;
+    el.classList.toggle('active', on);
+    el.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const el = opts[projActive];
+  el.scrollIntoView({ block:'nearest' });
+  document.getElementById('f-project-search').setAttribute('aria-activedescendant', el.id);
+}
+
+// Commits a selection. 'all' clears the filter. silent:true skips the redraw,
+// used when rebuilding the index for freshly loaded data.
+function setProject(name, opts = {}) {
+  const hidden = document.getElementById('f-project');
+  const input  = document.getElementById('f-project-search');
+  const clear  = document.getElementById('f-project-clear');
+  const isAll  = !name || name === 'all';
+
+  hidden.value  = isAll ? 'all' : name;
+  input.value   = isAll ? ''    : name;
+  input.classList.toggle('has-value', !isAll);
+  clear.hidden  = isAll;
+  closeProjectList();
+
+  if (!opts.silent) hidden.dispatchEvent(new Event('change'));
+}
+
+function initProjectSearch() {
+  const input = document.getElementById('f-project-search');
+  const list  = document.getElementById('f-project-list');
+  const clear = document.getElementById('f-project-clear');
+
+  input.addEventListener('input', () => openProjectList(input.value));
+  input.addEventListener('focus', () => openProjectList(input.value));
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (list.hidden) { openProjectList(input.value); setProjectActive(0); }
+      else             { setProjectActive(projActive + (e.key === 'ArrowDown' ? 1 : -1)); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      // Enter with nothing highlighted takes the single best match.
+      const pick = projMatches[projActive >= 0 ? projActive : 0];
+      if (pick) setProject(pick.name);
+    } else if (e.key === 'Escape') {
+      if (!list.hidden) { e.preventDefault(); closeProjectList(); }
+    }
+  });
+
+  // mousedown, not click: it fires before the input's blur.
+  list.addEventListener('mousedown', e => {
+    const li = e.target.closest('.combo-opt');
+    if (!li) return;
+    e.preventDefault();
+    const p = projMatches[+li.dataset.i];
+    if (p) setProject(p.name);
+  });
+
+  clear.addEventListener('click', () => { setProject('all'); input.focus(); });
+
+  // Abandoning a half-typed query reverts to the committed value.
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (document.activeElement === input) return;
+      closeProjectList();
+      const committed = document.getElementById('f-project').value;
+      input.value = committed === 'all' ? '' : committed;
+    }, 0);
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.combo')) closeProjectList();
+  });
 }
 
 function getFiltered() {
@@ -1049,8 +1249,9 @@ document.getElementById('modal').addEventListener('click', e=>{
   document.getElementById(id).addEventListener('change',()=>{curPage=1;update();});
 });
 document.getElementById('btn-reset').addEventListener('click',()=>{
-  ['f-district','f-bedroom','f-sizeband','f-year','f-month','f-tenure-type','f-tenure','f-segment','f-saletype','f-proptype','f-project']
+  ['f-district','f-bedroom','f-sizeband','f-year','f-month','f-tenure-type','f-tenure','f-segment','f-saletype','f-proptype']
     .forEach(id=>{document.getElementById(id).value='all';});
+  setProject('all', { silent:true });   // also clears the search box
   update();
 });
 document.getElementById('btn-connect').addEventListener('click', openModal);
@@ -1059,6 +1260,7 @@ document.getElementById('btn-connect').addEventListener('click', openModal);
 //  INIT — try to auto-detect ura_data.js
 // ══════════════════════════════════════════════════════
 (async function init() {
+  initProjectSearch();
   initFilters();
   updateHeaderRange();
   update(); // start with sample data immediately
