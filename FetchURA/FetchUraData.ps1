@@ -167,6 +167,18 @@ function Format-ProjectName {
     return ($result -join ' ')
 }
 
+# Reads an optional property without tripping Set-StrictMode. Uses the
+# PSObject.Properties indexer rather than '.Name -contains', which relies on
+# member enumeration and is not consistent between Windows PowerShell 5.1
+# and PowerShell 7.
+function Get-Prop {
+    param($Obj, [string] $Name, $Default = '')
+    if ($null -eq $Obj) { return $Default }
+    $prop = $Obj.PSObject.Properties[$Name]
+    if ($null -eq $prop -or $null -eq $prop.Value) { return $Default }
+    return $prop.Value
+}
+
 # ─────────────────────────────────────────────
 #  JSON output
 # ─────────────────────────────────────────────
@@ -218,7 +230,7 @@ function Test-UraJsonResponse {
     if ($null -eq $Response)                     { return $false }
     if ($Response -is [string])                  { return $false }
     if ($Response -is [System.Xml.XmlDocument])  { return $false }
-    return ($Response.PSObject.Properties.Name -contains 'Status')
+    return ($null -ne $Response.PSObject.Properties['Status'])
 }
 
 function New-UraToken {
@@ -233,7 +245,7 @@ function New-UraToken {
         throw "The token endpoint returned a web page instead of JSON - the URA firewall blocked this request. Try again from a different network, or generate the token manually in a browser."
     }
     if ($resp.Status -ne 'Success' -or [string]::IsNullOrWhiteSpace($resp.Result)) {
-        $msg = if ($resp.PSObject.Properties.Name -contains 'Message') { $resp.Message } else { 'unknown error' }
+        $msg = [string] (Get-Prop $resp 'Message' 'unknown error')
         throw "URA refused to issue a token: $msg. Check that the Access Key is correct and still active."
     }
     return $resp.Result
@@ -260,7 +272,7 @@ function Get-UraBatch {
         return ,$records
     }
     if ($resp.Status -ne 'Success') {
-        $msg = if ($resp.PSObject.Properties.Name -contains 'Message') { $resp.Message } else { 'unknown error' }
+        $msg = [string] (Get-Prop $resp 'Message' 'unknown error')
         Write-Warning "  Batch ${Batch}: API error - $msg"
         return ,$records
     }
@@ -269,14 +281,16 @@ function Get-UraBatch {
         if ([string]::IsNullOrWhiteSpace($project.project)) { continue }
 
         $projectName  = Format-ProjectName $project.project
-        $marketSegment = if ($project.PSObject.Properties.Name -contains 'marketSegment') { $project.marketSegment } else { '' }
-        $rawTenure     = if ($project.PSObject.Properties.Name -contains 'tenure')        { $project.tenure }        else { '' }
-        $tenureParts   = Get-TenureParts $rawTenure
+        $marketSegment = [string] (Get-Prop $project 'marketSegment')
+        # URA returns tenure per transaction; this project-level read is only a
+        # fallback for the rare record that carries it on the project instead.
+        $projectTenure = [string] (Get-Prop $project 'tenure')
 
-        if (-not ($project.PSObject.Properties.Name -contains 'transaction')) { continue }
+        $txns = Get-Prop $project 'transaction' $null
+        if ($null -eq $txns) { continue }
 
-        foreach ($tx in $project.transaction) {
-            $propType = if ($tx.PSObject.Properties.Name -contains 'propertyType') { $tx.propertyType } else { '' }
+        foreach ($tx in $txns) {
+            $propType = [string] (Get-Prop $tx 'propertyType')
             if ($PROPERTY_TYPES_INCLUDE -notcontains $propType) { continue }
 
             $areaSqm = 0.0; $price = 0.0
@@ -293,13 +307,19 @@ function Get-UraBatch {
             $year  = $contractDate[0]
             $month = $contractDate[1]
 
-            $districtRaw = if ($tx.PSObject.Properties.Name -contains 'district') { [string] $tx.district } else { '00' }
+            $districtRaw = [string] (Get-Prop $tx 'district' '00')
+            if ([string]::IsNullOrWhiteSpace($districtRaw)) { $districtRaw = '00' }
             $district    = 'D' + $districtRaw.PadLeft(2, '0')
 
-            $saleTypeRaw = if ($tx.PSObject.Properties.Name -contains 'typeOfSale') { [string] $tx.typeOfSale } else { '' }
+            $saleTypeRaw = [string] (Get-Prop $tx 'typeOfSale')
             $saleType    = if ($SALE_TYPE_MAP.ContainsKey($saleTypeRaw)) { $SALE_TYPE_MAP[$saleTypeRaw] } else { 'Unknown' }
 
-            $floorRange  = if ($tx.PSObject.Properties.Name -contains 'floorRange') { $tx.floorRange } else { '' }
+            $floorRange  = [string] (Get-Prop $tx 'floorRange')
+
+            # Tenure lives on the transaction. Fall back to the project only when absent.
+            $txTenure    = [string] (Get-Prop $tx 'tenure')
+            $rawTenure   = if (-not [string]::IsNullOrWhiteSpace($txTenure)) { $txTenure } else { $projectTenure }
+            $tenureParts = Get-TenureParts $rawTenure
 
             # Column order must match $COLS.
             $records.Add(@(
@@ -404,16 +424,34 @@ $projects  = $allRecords | ForEach-Object { $_[0] }  | Sort-Object -Unique
 $districtPreview = ($districts | Select-Object -First 10) -join ', '
 if ($districts.Count -gt 10) { $districtPreview += '...' }
 
+# A near-total Unknown tenure means the field moved or stopped being read.
+# It once failed silently for a whole dataset, so say so loudly.
+$unknownTenure = @($allRecords | Where-Object { $_[2] -eq 'Unknown' }).Count
+$unknownPct    = if ($allRecords.Count) { 100.0 * $unknownTenure / $allRecords.Count } else { 0 }
+
 Write-Host ('  Total records : {0:N0}' -f $allRecords.Count)
 Write-Host ('  Years         : {0}-{1}' -f ($years | Select-Object -First 1), ($years | Select-Object -Last 1))
 Write-Host ('  Districts     : {0}' -f $districtPreview)
 Write-Host ('  Projects      : {0:N0} unique' -f $projects.Count)
+if ($unknownPct -ge 50) {
+    Write-Host ('  Tenure        : {0:N0}% Unknown - the tenure field is not being read!' -f $unknownPct) -ForegroundColor Red
+} else {
+    Write-Host ('  Tenure        : {0:N0}% Unknown' -f $unknownPct)
+}
 Write-Host ''
 
 # Write ura_data.js — compact columnar payload, matching fetch_ura_data.py.
 $fetchedAt = (Get-Date).ToString('yyyy-MM-dd')
 
-$writer = New-Object System.IO.StreamWriter($Out, $false, (New-Object System.Text.UTF8Encoding $false))
+# StreamWriter resolves a relative path against .NET's current directory, which
+# is NOT PowerShell's location - they diverge whenever the session was started
+# somewhere other than the folder you cd'd into. Left relative, the file lands in
+# an unrelated directory while Resolve-Path below happily reports the path you
+# expected, because a stale copy already sits there. Make it absolute first.
+$outPath = if ([System.IO.Path]::IsPathRooted($Out)) { $Out }
+           else { Join-Path (Get-Location).ProviderPath $Out }
+
+$writer = New-Object System.IO.StreamWriter($outPath, $false, (New-Object System.Text.UTF8Encoding $false))
 try {
     $writer.Write("// URA Real Data $([char]0x2014) $fetchedAt $([char]0x2014) $($allRecords.Count) records`n")
     $writer.Write('window.URA_DATA={"cols":[')
@@ -436,11 +474,10 @@ try {
     $writer.Dispose()
 }
 
-$outFull = (Resolve-Path $Out).Path
-Write-Host ('  Saved {0:N0} records -> {1}' -f $allRecords.Count, $outFull) -ForegroundColor Green
+Write-Host ('  Saved {0:N0} records -> {1}' -f $allRecords.Count, $outPath) -ForegroundColor Green
 Write-Host ''
 Write-Host '  Next step:'
-Write-Host "   Place '$Out' in the same folder as index.html"
+Write-Host "   Place '$([System.IO.Path]::GetFileName($outPath))' in the same folder as index.html"
 Write-Host '   Then open (or refresh) index.html - it will load automatically.'
 Write-Host ''
 Write-Host '  Refresh cadence:'

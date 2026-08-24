@@ -446,7 +446,14 @@ python fetch_ura_data.py</div>
      directly from disk: browsers block fetch() of local files under the file://
      origin. A missing file is a harmless 404 - the fetch path below still runs,
      and the built-in sample data remains the last resort. -->
-<script src="ura_data.js"></script>
+<script>
+// Written with a cache-busting query so a refreshed ura_data.js is always picked
+// up - both the browser cache and Netlify's CDN would otherwise serve the old
+// copy, which looks exactly like a failed fetch. document.write is deliberate:
+// it blocks parsing, so window.URA_DATA is set before the main script runs.
+// A dynamically appended script would race it.
+document.write('<scr' + 'ipt src="ura_data.js?v=' + Date.now() + '"><\/scr' + 'ipt>');
+</script>
 
 <script>
 'use strict';
