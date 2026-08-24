@@ -1,6 +1,9 @@
 # Generated data (large, re-fetch with fetch_ura_data.py)
 ura_data.js
 **/ura_data.js
+# ...except the compacted deploy copy, which a git-based deploy has to serve.
+# Regenerate it with: python property-analyzer/build.py
+!property-analyzer/ura_data.js
 
 # Temp / test files
 test_*.js
@@ -8,9 +11,13 @@ check_script.js
 test_chartTenure.js
 nul
 
-# Local Claude settings
-.claude/
+# Local Claude settings — but the property-analysis skill is part of the project
+.claude/*
+!.claude/skills/
 
 # Python cache
 __pycache__/
 *.pyc
+
+# Deploy bundle (regenerate with property-analyzer/build.py)
+property-analyzer/dist/

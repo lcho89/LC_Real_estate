@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Analyzer — Eric Chiew Framework</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#C0392B; --dark:#1a2744; --blue:#2c4a8c; --lblue:#e8eef7;
+  --bg:#f0f2f6; --card:#fff; --text:#1a2744; --muted:#5a6a8a; --border:#dde3ee;
+  --green:#16a34a; --orange:#d97706; --teal:#0891b2; --amber:#f59e0b;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+
+.header{background:linear-gradient(135deg,#1a2744,#2c4a8c);color:#fff;padding:14px 26px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.18);flex-wrap:wrap;gap:10px}
+.header h1{font-size:18px;font-weight:700}
+.header p{font-size:11px;opacity:.65;margin-top:2px}
+.hbadges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hbadge{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);padding:4px 11px;border-radius:20px;font-size:11px}
+.hbadge.real{background:rgba(22,163,74,.25);border-color:rgba(22,163,74,.5)}
+
+.main{max-width:1560px;margin:0 auto;padding:18px 22px;display:grid;grid-template-columns:365px 1fr;gap:16px;align-items:start}
+@media(max-width:1080px){.main{grid-template-columns:1fr}}
+
+.card{background:var(--card);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:15px 17px;margin-bottom:14px}
+.card h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:11px;display:flex;justify-content:space-between;align-items:center}
+.card h2 .sub{font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.8}
+
+label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);display:block;margin-bottom:3px}
+input,select,textarea{width:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:12.5px;color:var(--text);background:#fff;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(44,74,140,.1)}
+textarea{resize:vertical;min-height:74px;font-size:11.5px;line-height:1.45}
+.row{display:grid;gap:9px;margin-bottom:9px}
+.r2{grid-template-columns:1fr 1fr}
+.r3{grid-template-columns:1fr 1fr 1fr}
+.chk{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.chk input{width:auto;margin:0}
+.chk label{margin:0;text-transform:none;font-size:11.5px;font-weight:500;letter-spacing:0;color:var(--text)}
+.hint{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+.btn{width:100%;padding:9px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn:hover{background:#1a3a7a}
+.btn.sec{background:var(--bg);color:var(--muted);border:1.5px solid var(--border);font-weight:600;font-size:12px;padding:7px}
+.btn.sec:hover{background:var(--border);color:var(--text)}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+
+.verdict{border-radius:12px;padding:17px 20px;color:#fff;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.verdict.under{background:linear-gradient(135deg,#15803d,#22c55e)}
+.verdict.good{background:linear-gradient(135deg,#0f766e,#14b8a6)}
+.verdict.fair{background:linear-gradient(135deg,#2c4a8c,#4c6fb8)}
+.verdict.rich{background:linear-gradient(135deg,#b45309,#f59e0b)}
+.verdict.over{background:linear-gradient(135deg,#991b1b,#dc2626)}
+.verdict.none{background:linear-gradient(135deg,#475569,#64748b)}
+.v-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.v-label{font-size:24px;font-weight:800;letter-spacing:-.4px;line-height:1.1}
+.v-sub{font-size:12px;opacity:.9;margin-top:4px}
+.v-score{text-align:right;flex-shrink:0}
+.v-score .num{font-size:32px;font-weight:800;line-height:1}
+.v-score .cap{font-size:10px;text-transform:uppercase;letter-spacing:.6px;opacity:.8}
+.v-nums{display:flex;gap:22px;margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);flex-wrap:wrap}
+.v-num .k{font-size:10px;text-transform:uppercase;letter-spacing:.5px;opacity:.75}
+.v-num .v{font-size:17px;font-weight:700;margin-top:2px}
+
+.scores{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:640px){.scores{grid-template-columns:1fr}}
+.score{background:var(--card);border-radius:12px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid var(--blue)}
+.score .lab{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.score .val{font-size:25px;font-weight:800;margin:4px 0 2px}
+.bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin:6px 0 8px}
+.bar span{display:block;height:100%;border-radius:3px}
+.score ul{list-style:none;font-size:11px;color:var(--muted);line-height:1.55}
+.score li{display:flex;justify-content:space-between;gap:8px}
+.score li b{font-weight:600;flex-shrink:0}
+.pos{color:var(--green)} .neg{color:var(--red)}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{background:#f8f9fc;padding:7px 9px;text-align:left;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:6px 9px;border-bottom:1px solid #f0f2f6;white-space:nowrap}
+tbody tr:hover td{background:#f6f8fc}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;margin:0 -17px;padding:0 17px}
+
+.ladder td{padding:5px 9px}
+.ladder .step td{color:var(--muted)}
+.ladder .total td{font-weight:700;border-top:1.5px solid var(--border);border-bottom:none;background:#f8f9fc}
+
+.flag{display:flex;gap:9px;padding:9px 11px;border-radius:8px;margin-bottom:7px;font-size:12px;line-height:1.45}
+.flag.veto{background:#fef2f2;border-left:3px solid var(--red);color:#7f1d1d}
+.flag.warn{background:#fffbeb;border-left:3px solid var(--amber);color:#78350f}
+.flag.ok{background:#f0fdf4;border-left:3px solid var(--green);color:#14532d}
+.flag b{display:block;margin-bottom:1px}
+
+.tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
+.tab{padding:5px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;background:#fff;color:var(--muted)}
+.tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tab.dim{opacity:.5}
+
+.pill{display:inline-block;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.b-fh{background:#dcfce7;color:#15803d}.b-lh{background:#fff7ed;color:#c2410c}
+.b-ns{background:#f0fdf4;color:#166534}.b-re{background:#f8fafc;color:#475569}.b-ss{background:#fefce8;color:#854d0e}
+.b-ccr{background:#fdf2f8;color:#9d174d}.b-rcr{background:#fff7ed;color:#c2410c}.b-ocr{background:#eff6ff;color:#1d4ed8}
+
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:11px}
+.vital .k{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.vital .v{font-size:16px;font-weight:700;margin-top:2px}
+.vital .n{font-size:10.5px;color:var(--muted);margin-top:1px}
+
+.empty{padding:34px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}
+.sep{border-top:1px solid var(--border);margin:12px -17px 10px;padding:12px 17px 0}
+.opt{font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted);opacity:.75;font-size:9.5px}
+.sugg{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.sugg .s{border:1.5px solid var(--border);border-radius:7px;padding:5px 8px;cursor:pointer;background:#fff;font-size:11px;line-height:1.35}
+.sugg .s:hover{border-color:var(--blue);background:var(--lblue)}
+.sugg .s b{display:block;font-size:11.5px}
+.sugg .s span{color:var(--muted)}
+.foot{max-width:1560px;margin:0 auto;padding:4px 22px 26px;font-size:11px;color:var(--muted);line-height:1.6}
+.foot code{background:#e6eaf2;padding:1px 5px;border-radius:4px;font-size:10.5px}
+datalist{position:absolute}
+.banner{padding:7px 26px;font-size:11.5px;background:#f0fdf4;color:#166534;border-bottom:1px solid #bbf7d0}
+.banner.err{background:#fef2f2;color:#991b1b;border-bottom-color:#fecaca}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Property Analyzer</h1>
+    <p>Eric Chiew's framework, run against real URA transactions</p>
+  </div>
+  <div class="hbadges">
+    <span class="hbadge real" id="dsBadge">loading data…</span>
+    <span class="hbadge">Location · Pricing · Exit &divide; 3</span>
+  </div>
+</div>
+<div class="banner" id="banner">Loading URA transaction data…</div>
+
+<div class="main">
+
+  <!-- ─────────── INPUT ─────────── -->
+  <div>
+    <div class="card">
+      <h2>Paste the listing</h2>
+      <textarea id="paste" placeholder="Paste the listing text here — project name, price, size, bedrooms. Then hit Parse.&#10;&#10;e.g. Grand Dunman, 3 Bedroom, 2 Bath, 1,119 sqft, S$2,650,000 (S$2,368 psf), D15, 99-year, TOP 2028"></textarea>
+      <div class="btn-row">
+        <button class="btn sec" id="btnParse">Parse listing</button>
+        <button class="btn sec" id="btnClear">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>The unit</h2>
+      <div class="row">
+        <div>
+          <label>Project</label>
+          <input id="project" list="projects" placeholder="start typing…" autocomplete="off">
+          <datalist id="projects"></datalist>
+          <div class="hint" id="projHint"></div>
+        </div>
+      </div>
+      <div class="row r2">
+        <div><label>Asking price (S$)</label><input id="price" type="number" step="1000" placeholder="2650000"></div>
+        <div><label>Size (sqft)</label><input id="size" type="number" placeholder="1119"></div>
+      </div>
+      <div class="row r3">
+        <div><label>Bedrooms</label>
+          <select id="beds"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select>
+        </div>
+        <div><label>Baths</label>
+          <select id="baths"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select>
+        </div>
+        <div><label>Floor</label>
+          <select id="floor"><option value="3">01-05</option><option value="8" selected>06-10</option><option value="13">11-15</option><option value="18">16-20</option><option value="23">21-25</option><option value="30">26+</option></select>
+        </div>
+      </div>
+      <div class="row r2">
+        <div><label>District</label><input id="district" placeholder="D15"></div>
+        <div><label>Segment</label>
+          <select id="segment"><option value="">auto</option><option>CCR</option><option>RCR</option><option>OCR</option></select>
+        </div>
+      </div>
+      <div class="row r3">
+        <div><label>Tenure</label>
+          <select id="tenure"><option>99-year</option><option>Freehold</option><option>999-year</option></select>
+        </div>
+        <div><label>Lease from</label><input id="leaseYear" type="number" placeholder="2019"></div>
+        <div><label>TOP year</label><input id="topYear" type="number" placeholder="2028"></div>
+      </div>
+      <div class="row r2">
+        <div><label>Units in project</label><input id="units" type="number" placeholder="1008"></div>
+        <div><label>MRT walk (m)</label><input id="mrt" type="number" placeholder="200"></div>
+      </div>
+      <div class="hint">Unit count, TOP and MRT distance aren't in URA data. Run
+        <code>location.py</code> for a real MRT distance, or web-search the unit count.</div>
+    </div>
+
+    <div class="card">
+      <h2>Location &amp; exit factors</h2>
+      <div class="row r2">
+        <div><label>Elite schools &lt;1km</label>
+          <select id="schools"><option value="0">None</option><option value="1">1 (whole project)</option><option value="0.5">Edge stacks only</option><option value="2">2 or more</option></select>
+        </div>
+        <div><label>Integrated mall</label>
+          <select id="mall"><option value="0">None</option><option value="0.75">Major mall &lt;500m</option><option value="0.5">Small "pirated" mall</option><option value="1">Proper mall 250k+ sqft</option></select>
+        </div>
+      </div>
+      <div class="row r2">
+        <div><label>Competing launches nearby</label><input id="supply" type="number" value="0" min="0"></div>
+        <div><label>Property type</label>
+          <select id="ptype"><option>Condo / Apartment</option><option>Executive Condominium</option><option>Landed</option></select>
+        </div>
+      </div>
+      <div class="chk"><input type="checkbox" id="density" checked><label for="density">Mature, high-density estate with real foot traffic</label></div>
+      <div class="chk"><input type="checkbox" id="introvert"><label for="introvert">"Introvert" low-density area (Panjang-type, far OCR)</label></div>
+      <div class="chk"><input type="checkbox" id="noise"><label for="noise">Expressway noise / industrial surroundings</label></div>
+      <div class="chk"><input type="checkbox" id="view"><label for="view">Sea or permanently unblocked view</label></div>
+      <div class="chk"><input type="checkbox" id="mop" checked><label for="mop">HDB blocks reaching MOP nearby (run hdb.py)</label></div>
+      <div class="chk"><input type="checkbox" id="loss"><label for="loss">Neighbouring projects have a loss history</label></div>
+      <div class="chk"><input type="checkbox" id="kitchen" checked><label for="kitchen">Enclosed kitchen with a window ("wok hey")</label></div>
+    </div>
+
+    <div class="card">
+      <h2>Comp settings</h2>
+      <div class="row r2">
+        <div><label>Window (months)</label>
+          <select id="months"><option value="12">12</option><option value="18" selected>18</option><option value="24">24</option><option value="36">36</option></select>
+        </div>
+        <div><label>Size band ±%</label>
+          <select id="tol"><option value="0.1">10</option><option value="0.15" selected>15</option><option value="0.25">25</option><option value="1">any</option></select>
+        </div>
+      </div>
+      <div class="hint" style="margin:-4px 0 10px">
+        <b>Window</b> — how far back to pull comps. 12 months is freshest; widen to 24–36 for a
+        quiet project. <b>Size band</b> — only comps within this % of your size count. Keep it at
+        10–15% for a common layout; widen it if the comps table comes back nearly empty.
+      </div>
+
+      <div class="sep">
+        <label>Benchmark project <span class="opt">new launches only</span></label>
+        <input id="benchmark" list="projects" placeholder="e.g. Treasure At Tampines" autocomplete="off">
+        <button class="btn sec" id="btnSuggest" style="margin-top:7px">Suggest benchmarks from the data</button>
+        <div id="suggestions"></div>
+        <div class="hint"><b>When you need one:</b> your project has no transaction history yet, so
+          there is nothing to comp against. Pick an <b>older, established</b> project — same district
+          or one MRT stop away, similar bedroom count, plenty of resale prints — and the full
+          age-gap ladder runs. That is exactly Eric's method: Treasure at Tampines for Pinery,
+          Costa Del Sol for Vela Bay. Leave this blank for a resale; the project's own prints are
+          always the better comp.</div>
+      </div>
+
+      <div class="row r3">
+        <div><label>Benchmark TOP</label><input id="benchTop" type="number" placeholder="2019"></div>
+        <div><label>Age gap (yrs)</label><input id="ageGap" type="number" placeholder="auto"></div>
+        <div><label>Growth %/yr</label><input id="growth" type="number" step="0.5" placeholder="auto"></div>
+      </div>
+      <div class="hint" id="gapHint" style="margin:-4px 0 9px">
+        <b>Age gap</b> = your TOP year − the benchmark's TOP year. Eric adds <b>$50 psf for every
+        year</b> the benchmark is older. Fill in both TOP years and this computes itself; type a
+        number to override.
+      </div>
+      <div class="chk"><input type="checkbox" id="harmonise" checked><label for="harmonise">Subject is a post-2023 launch (strata harmonised)</label></div>
+      <button class="btn" id="btnRun">Analyse</button>
+    </div>
+  </div>
+
+  <!-- ─────────── OUTPUT ─────────── -->
+  <div id="out">
+    <div class="card"><div class="empty">
+      Enter a listing on the left and hit <b>Analyse</b>.<br>
+      Every number comes from the URA transaction file loaded above.
+    </div></div>
+  </div>
+</div>
+
+<div class="foot" id="foot"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   Eric Chiew framework — constants live in
+   .claude/skills/property-analysis/references/scoring.md
+   Keep the two in sync.
+   ══════════════════════════════════════════════════════════════ */
+const K = {
+  AGE_PSF_YOUNG: 50,      // $/psf per year, comps under 20 yrs
+  AGE_PSF_OLD:   40,      // $/psf per year, comps 20 yrs+
+  HARMONISE_PCT: 0.05, HARMONISE_MIN: 100, HARMONISE_MAX: 200,
+  MRT_INTEGRATED: 100, MRT_CLOSER: 50,
+  MALL_PROPER: 100, MALL_PIRATED: 50, MALL_NEAR: 75,
+  SCHOOL_FULL: 100, SCHOOL_EDGE: 50,
+  VIEW: 300,
+  FLOOR_PCT_PER_STOREY: 0.004,
+  OCR_THRESHOLD: 2500,
+};
+
+/* ── dataset loading ─────────────────────────────────────────
+   The dashboard's data file is the single source of truth — it gets refreshed
+   monthly. Load that one first so this app never drifts behind it; the local
+   copy is only a last resort. Cache-busted so a refresh is picked up at once. */
+const DATA_PATHS = [
+  '../FetchURA/ura_data.js',
+  '../Netlify%20upload_property/ura_data.js',
+  '../House/ura_data.js',
+  'ura_data.js',              // bundled copy — the only one that exists once deployed
+];
+let DATA_SRC = null, DATA_DATE = null;
+
+/* Probe every candidate with a HEAD request and load whichever was written most
+   recently. Refresh any of them and this app picks it up on the next reload —
+   no path order to maintain, no copying. */
+async function loadData(){
+  const banner = document.getElementById('banner');
+  banner.textContent = 'Locating the freshest URA dataset …';
+
+  // Sibling-directory discovery is a local convenience; a deployed bundle only ever
+  // ships ura_data.js, so skip the probes that would just log 404s.
+  const local = ['localhost','127.0.0.1',''].includes(location.hostname);
+  const paths = local ? DATA_PATHS : ['ura_data.js'];
+
+  const probes = await Promise.all(paths.map(async p => {
+    try {
+      const r = await fetch(p, {method:'HEAD', cache:'no-store'});
+      if(!r.ok) return null;
+      const lm = r.headers.get('Last-Modified');
+      return {path: p, when: lm ? new Date(lm).getTime() : 0, lm};
+    } catch { return null; }
+  }));
+
+  const found = probes.filter(Boolean).sort((a,b) => b.when - a.when);
+  if(!found.length){
+    banner.className = 'banner err';
+    banner.innerHTML = 'No <code>ura_data.js</code> reachable. Start the server from the repo root '
+      + '(the "Property Analyzer" config in .claude/launch.json).';
+    return;
+  }
+  inject(found, 0);
+}
+
+function inject(found, i){
+  const banner = document.getElementById('banner');
+  if(i >= found.length){
+    banner.className = 'banner err';
+    banner.textContent = 'Found data files but none of them loaded — the file may be corrupt.';
+    return;
+  }
+  banner.textContent = `Loading ${decodeURIComponent(found[i].path)} …`;
+  const s = document.createElement('script');
+  s.src = found[i].path + '?v=' + Date.now();
+  s.onload = () => {
+    if(!window.URA_DATA) return inject(found, i+1);
+    DATA_SRC = found[i].path;
+    DATA_DATE = found[i].lm;
+    DATA_ALL = found;
+    boot();
+  };
+  s.onerror = () => inject(found, i+1);
+  document.head.appendChild(s);
+}
+let DATA_ALL = [];
+
+let DS = null;
+function boot(){
+  const banner = document.getElementById('banner');
+  if(!window.URA_DATA){
+    banner.className = 'banner err';
+    banner.textContent = 'Data file loaded but window.URA_DATA is missing — the file may be corrupt.';
+    return;
+  }
+  const D = window.URA_DATA, meta = D.meta || {}, CI = {};
+  D.cols.forEach((c,i)=>CI[c]=i);
+
+  // Codes let us filter on integers instead of strings — 126k rows stays instant.
+  const code = (col,val)=>{ const d = meta[col]; if(!d) return val; const i = d.indexOf(val); return i<0?null:i; };
+  const dec  = (col,v)=>{ const d = meta[col]; return d ? d[v] : v; };
+
+  const byProject = new Map();
+  D.rows.forEach(r=>{
+    const p = dec('project', r[CI.project]);
+    if(!byProject.has(p)) byProject.set(p, []);
+    byProject.get(p).push(r);
+  });
+
+  DS = {D, meta, CI, code, dec, byProject, projects:[...byProject.keys()].sort()};
+
+  const dl = document.getElementById('projects');
+  dl.innerHTML = DS.projects.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('');
+
+  document.getElementById('dsBadge').textContent = `${D.rows.length.toLocaleString()} URA transactions`;
+
+  // Flag a stale dataset rather than quietly valuing today's listing on old prints.
+  let age = null, dateTxt = 'date unknown';
+  if(DATA_DATE){
+    const d = new Date(DATA_DATE);
+    age = Math.round((Date.now() - d.getTime()) / 86400000);
+    dateTxt = d.toISOString().slice(0,10) + ` · ${age} days old`;
+  }
+  const stale = age != null && age > 45;
+  const others = DATA_ALL.filter(f => f.path !== DATA_SRC).length;
+  banner.className = 'banner' + (stale ? ' err' : '');
+  banner.innerHTML =
+    `<b>${D.rows.length.toLocaleString()}</b> URA transactions across `
+    + `<b>${DS.projects.length.toLocaleString()}</b> projects · newest of `
+    + `${DATA_ALL.length} data file${DATA_ALL.length===1?'':'s'}: `
+    + `<code>${decodeURIComponent(DATA_SRC)}</code> · ${dateTxt}`
+    + (stale ? ' — <b>stale.</b> Re-run your fetch script, then reload this page.' : '')
+    + (others ? ` <span style="opacity:.7">(${others} older ${others===1?'copy':'copies'} ignored)</span>` : '');
+
+  document.getElementById('foot').innerHTML =
+    `Comps come from the dashboard's own data file, cache-busted on every load — refresh that file `
+    + `monthly and this app follows automatically, no copying. `
+    + `MRT distance, unit count and TOP year are your inputs: get the first two from `
+    + `<code>location.py</code> and a web search. `
+    + `This is a framework-based valuation from historical data, not financial advice.`;
+}
+
+/* ── helpers ─────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const num = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+const money = n => n==null ? '—' : '$' + Math.round(n).toLocaleString();
+const psfFmt = n => n==null ? '—' : '$' + Math.round(n).toLocaleString() + ' psf';
+const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=s.length>>1;
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+const pct = (a,p) => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y);
+  return s[Math.min(s.length-1, Math.max(0, Math.round((s.length-1)*p)))]; };
+const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+const bedLabel = n => n>=5 ? '5-Bedroom' : `${n}-Bedroom`;
+const FLOOR_MID = {'-':3,'01-05':3,'06-10':8,'11-15':13,'16-20':18,'21-25':23,'26-30':28,
+  '31-35':33,'36-40':38,'41-45':43,'46-50':48,'51-55':53,'56-60':58,'61-65':63,'66-70':68};
+
+function cutoff(months){
+  const now = new Date();
+  const t = now.getFullYear()*12 + now.getMonth() - months;
+  return {y: Math.floor(t/12), m: (t%12)+1};
+}
+function newer(row, cut){
+  const y = row[DS.CI.year], m = row[DS.CI.month];
+  return y > cut.y || (y === cut.y && m >= cut.m);
+}
+function rowObj(r){
+  const C = DS.CI, d = DS.dec;
+  return {
+    project: d('project', r[C.project]), district: d('district', r[C.district]),
+    tenure: d('tenure', r[C.tenure]), bedroom: d('bedroomType', r[C.bedroomType]),
+    size: r[C.size], psf: r[C.psf], price: r[C.transactionValue],
+    year: r[C.year], month: r[C.month],
+    segment: d('marketSegment', r[C.marketSegment]),
+    floor: d('floorRange', r[C.floorRange]), saleType: d('saleType', r[C.saleType]),
+  };
+}
+
+/* ── comp tiers ──────────────────────────────────────────── */
+function buildComps(cfg){
+  const C = DS.CI, cut = cutoff(cfg.months);
+  const bedCode = DS.code('bedroomType', bedLabel(cfg.beds));
+  const distCode = cfg.district ? DS.code('district', cfg.district) : null;
+  const segCode = cfg.segment ? DS.code('marketSegment', cfg.segment) : null;
+  const projCode = cfg.project ? DS.code('project', cfg.project) : null;
+
+  const sizeOK = r => cfg.tol >= 1 || !cfg.size ? true
+    : Math.abs(r[C.size] - cfg.size) <= cfg.size * cfg.tol;
+
+  const t1 = [], t2 = [], t3 = [], bench = [];
+  const benchCode = cfg.benchmark ? DS.code('project', cfg.benchmark) : null;
+
+  for(const r of DS.D.rows){
+    const isBench = benchCode!=null && r[C.project]===benchCode;
+    if(!newer(r, cut)){
+      if(isBench) continue;
+      continue;
+    }
+    const bedMatch = bedCode==null || r[C.bedroomType]===bedCode;
+    if(isBench && bedMatch){ bench.push(r); continue; }
+    if(projCode!=null && r[C.project]===projCode){
+      if(bedMatch) t1.push(r);
+      continue;
+    }
+    if(!bedMatch) continue;
+    if(distCode!=null && r[C.district]===distCode && sizeOK(r)) t2.push(r);
+    if(segCode!=null && r[C.marketSegment]===segCode && sizeOK(r)) t3.push(r);
+  }
+
+  // Prefer the tight size band inside the project, but never lose tier 1 to it.
+  let t1f = t1.filter(sizeOK);
+  if(t1f.length < 3) t1f = t1;
+
+  return {
+    t1: summarise(t1f, `Same project — ${cfg.project||'—'}`),
+    t2: summarise(t2, `Same district ${cfg.district||''} · ${bedLabel(cfg.beds)}`),
+    t3: summarise(t3, `Same segment ${cfg.segment||''} · ${bedLabel(cfg.beds)}`),
+    bench: summarise(bench, `Benchmark — ${cfg.benchmark||'—'}`),
+  };
+}
+
+function summarise(rows, label){
+  if(!rows.length) return {label, n:0, rows:[]};
+  const objs = rows.map(rowObj).sort((a,b)=> (b.year*12+b.month) - (a.year*12+a.month));
+  const psfs = objs.map(o=>o.psf), prices = objs.map(o=>o.price);
+  const floors = objs.map(o=>FLOOR_MID[o.floor] ?? 8);
+  const last = objs[objs.length-1], first = objs[0];
+  return {
+    label, n: objs.length, rows: objs,
+    psfMed: median(psfs), p25: pct(psfs,.25), p75: pct(psfs,.75),
+    psfMin: Math.min(...psfs), psfMax: Math.max(...psfs),
+    priceMed: median(prices), sizeMed: median(objs.map(o=>o.size)),
+    floorMed: median(floors),
+    from: `${last.year}-${String(last.month).padStart(2,'0')}`,
+    to: `${first.year}-${String(first.month).padStart(2,'0')}`,
+  };
+}
+
+/* ── project vitals ──────────────────────────────────────── */
+function vitals(project, district){
+  const rows = DS.byProject.get(project);
+  if(!rows) return null;
+  const C = DS.CI, cut = cutoff(24);
+  const last24 = rows.filter(r=>newer(r, cut)).length;
+
+  const yearMed = rowsByYear(rows);
+  const distRows = [];
+  const distCode = district ? DS.code('district', district) : null;
+  if(distCode!=null) for(const r of DS.D.rows) if(r[C.district]===distCode) distRows.push(r);
+  const distMed = rowsByYear(distRows);
+
+  const mix = {};
+  rows.forEach(r=>{ const b = DS.dec('bedroomType', r[C.bedroomType]); mix[b]=(mix[b]||0)+1; });
+  const sale = {};
+  rows.forEach(r=>{ const s = DS.dec('saleType', r[C.saleType]); sale[s]=(sale[s]||0)+1; });
+
+  return {
+    project, n: rows.length, last24,
+    velocity: last24>=40?'strong':last24>=15?'healthy':last24>=5?'thin':last24>=1?'very thin':'frozen',
+    tenure: DS.dec('tenure', rows[0][C.tenure]),
+    segment: DS.dec('marketSegment', rows[0][C.marketSegment]),
+    district: DS.dec('district', rows[0][C.district]),
+    ptype: DS.dec('propertyType', rows[0][C.propertyType]),
+    yearMed, distMed, cagr: cagr(yearMed), distCagr: cagr(distMed), mix, sale,
+    sizeMin: Math.min(...rows.map(r=>r[C.size])), sizeMax: Math.max(...rows.map(r=>r[C.size])),
+  };
+}
+function rowsByYear(rows){
+  const C = DS.CI, buckets = {};
+  rows.forEach(r=>{ (buckets[r[C.year]] ||= []).push(r[C.psf]); });
+  const out = {};
+  Object.keys(buckets).sort().forEach(y=> out[y] = Math.round(median(buckets[y])));
+  return out;
+}
+function cagr(series){
+  const ys = Object.keys(series).map(Number).sort();
+  if(ys.length < 2) return null;
+  const span = ys[ys.length-1] - ys[0];
+  if(span <= 0 || !series[ys[0]]) return null;
+  return +(((series[ys[ys.length-1]]/series[ys[0]]) ** (1/span) - 1) * 100).toFixed(2);
+}
+
+/* ── fair value ladder ───────────────────────────────────── */
+function fairValue(cfg, comps){
+  const steps = [];
+  const useBench = comps.bench.n >= 3 && (comps.t1.n < 3 || cfg.benchmark);
+  const base = useBench ? comps.bench : (comps.t1.n >= 3 ? comps.t1 : (comps.t2.n >= 5 ? comps.t2 : comps.t3));
+  if(!base || !base.n) return null;
+
+  let psf = base.psfMed;
+  steps.push({label: `${base.label} — median of ${base.n} prints (${base.from} → ${base.to})`,
+              delta: null, running: psf});
+
+  const sameProject = base === comps.t1;
+
+  // Strata harmonisation — only when comping a post-2023 launch to an older project.
+  if(cfg.harmonise && !sameProject){
+    const d = Math.round(clamp(base.psfMed * K.HARMONISE_PCT, K.HARMONISE_MIN, K.HARMONISE_MAX));
+    psf += d; steps.push({label:'Strata harmonisation (+5%, capped $100–$200)', delta:d, running:psf});
+  }
+
+  // Age gap — the $50/yr rule.
+  if(!sameProject && cfg.ageGap){
+    // Older comps decay more slowly, so Eric drops the rate past the 20-year mark.
+    const rate = (cfg.benchAge != null && cfg.benchAge >= 20) ? K.AGE_PSF_OLD : K.AGE_PSF_YOUNG;
+    const d = Math.round(cfg.ageGap * rate);
+    psf += d;
+    steps.push({label:`Age gap — ${Math.abs(cfg.ageGap)} yrs × $${rate}/yr `
+                     + `(benchmark is ${cfg.ageGap>0?'older':'newer'})`, delta:d, running:psf});
+  }
+
+  if(!sameProject){
+    if(cfg.mrt != null){
+      if(cfg.mrt <= 150){ psf += K.MRT_INTEGRATED;
+        steps.push({label:'MRT — integrated / direct link', delta:K.MRT_INTEGRATED, running:psf}); }
+      else if(cfg.mrt <= 300){ psf += K.MRT_CLOSER;
+        steps.push({label:'MRT — materially closer than the comp', delta:K.MRT_CLOSER, running:psf}); }
+      else if(cfg.mrt > 1000){ psf -= K.MRT_CLOSER;
+        steps.push({label:'MRT — over 1 km', delta:-K.MRT_CLOSER, running:psf}); }
+    }
+    const mall = cfg.mall;
+    if(mall > 0){
+      const d = mall === 1 ? K.MALL_PROPER : mall === 0.75 ? K.MALL_NEAR : K.MALL_PIRATED;
+      psf += d;
+      steps.push({label: mall===1 ? 'Integrated mall 250k+ sqft'
+                       : mall===0.75 ? 'Major mall within 500 m' : 'Small "pirated" mall',
+                  delta:d, running:psf});
+    }
+    if(cfg.schools >= 1){ psf += K.SCHOOL_FULL;
+      steps.push({label:'Elite primary within 1 km', delta:K.SCHOOL_FULL, running:psf}); }
+    else if(cfg.schools === 0.5){ psf += K.SCHOOL_EDGE;
+      steps.push({label:'Elite primary — edge stacks only', delta:K.SCHOOL_EDGE, running:psf}); }
+    if(cfg.view){ psf += K.VIEW;
+      steps.push({label:'Sea / permanently unblocked view', delta:K.VIEW, running:psf}); }
+  }
+
+  // Floor: comps carry their own storey mix, so adjust to the subject's band.
+  if(base.floorMed != null && cfg.floor != null){
+    const storeys = cfg.floor - base.floorMed;
+    if(Math.abs(storeys) >= 1){
+      const d = Math.round(base.psfMed * K.FLOOR_PCT_PER_STOREY * storeys);
+      if(d !== 0){ psf += d;
+        steps.push({label:`Floor — ${storeys>0?'+':''}${storeys} storeys vs comp median (0.4%/storey)`,
+                    delta:d, running:psf}); }
+    }
+  }
+
+  return {steps, fairPsf: Math.round(psf), base, useBench, sameProject};
+}
+
+/* ── scoring ─────────────────────────────────────────────── */
+function scoreLocation(cfg){
+  let s = 5; const notes = [];
+  const add = (d, why) => { s += d; notes.push({d, why}); };
+  if(cfg.mrt == null) notes.push({d:0, why:'MRT distance unknown — scored neutral'});
+  else if(cfg.mrt <= 100) add(2.5, 'MRT integrated / direct link');
+  else if(cfg.mrt <= 300) add(2.0, `MRT ${cfg.mrt} m`);
+  else if(cfg.mrt <= 500) add(1.5, `MRT ${cfg.mrt} m — inside the 400–500 m rule`);
+  else if(cfg.mrt <= 700) add(0.5, `MRT ${cfg.mrt} m — borderline`);
+  else if(cfg.mrt <= 1000) add(-1.0, `MRT ${cfg.mrt} m — fails the rule`);
+  else add(-2.5, `MRT ${cfg.mrt} m — "will break your legs"`);
+
+  if(cfg.schools >= 2) add(1.5, 'Two or more elite primaries within 1 km');
+  else if(cfg.schools >= 1) add(1.0, 'Elite primary within 1 km');
+  else if(cfg.schools === 0.5) add(0.5, 'Elite primary — edge stacks only');
+
+  if(cfg.mall === 1) add(1.0, 'Integrated mall 250k+ sqft');
+  else if(cfg.mall === 0.75) add(0.75, 'Major mall within 500 m');
+  else if(cfg.mall === 0.5) add(0.5, 'Small "pirated" mall');
+
+  if(cfg.density) add(0.5, 'Mature, high-density estate — crowds make money');
+  if(cfg.introvert) add(-1.5, '"Introvert" low-density area');
+  if(cfg.noise) add(-0.5, 'Expressway noise / industrial surroundings');
+  if(cfg.view) add(0.5, 'Sea or unblocked view');
+  return {score: clamp(s,1,10), notes};
+}
+
+function scorePricing(cfg, fv, comps){
+  let s = 5; const notes = [];
+  const add = (d, why) => { s += d; notes.push({d, why}); };
+  if(fv && cfg.psf){
+    const gap = (fv.fairPsf - cfg.psf) / fv.fairPsf;
+    const d = clamp(Math.round(gap*100/2)*0.5, -4, 4);
+    add(d, `${gap>=0?'Under':'Over'} fair value by ${Math.abs(gap*100).toFixed(1)}%`);
+  } else notes.push({d:0, why:'No comps — pricing scored neutral'});
+
+  if(cfg.segment === 'OCR' && cfg.psf > K.OCR_THRESHOLD)
+    add(-1.5, `$${Math.round(cfg.psf).toLocaleString()} psf in the OCR — above the $2,500 line`);
+  else if(cfg.segment === 'OCR' && cfg.psf && cfg.psf <= 2200)
+    add(0.5, 'OCR entry at or below $2,200 psf');
+
+  if(comps.t2.n >= 5 && cfg.psf){
+    if(cfg.psf < comps.t2.p25) add(0.5, 'Below the 25th percentile of district comps');
+    else if(cfg.psf > comps.t2.p75) add(-0.5, 'Above the 75th percentile of district comps');
+  }
+  if(cfg.price >= 1_800_000 && cfg.price <= 2_000_000 && cfg.beds >= 3)
+    add(0.5, 'Quantum sits in the $1.8M–$2M sweet spot for a 3/4-bedder');
+  return {score: clamp(s,1,10), notes};
+}
+
+function scoreExit(cfg, v){
+  let s = 5; const notes = [];
+  const add = (d, why) => { s += d; notes.push({d, why}); };
+
+  if(cfg.units == null) notes.push({d:0, why:'Unit count unknown — scored neutral'});
+  else if(cfg.units >= 1000) add(2.0, `${cfg.units.toLocaleString()} units — full volume effect`);
+  else if(cfg.units >= 400) add(1.0, `${cfg.units.toLocaleString()} units`);
+  else if(cfg.units >= 200) add(-1.0, `${cfg.units} units — below the 400 line`);
+  else if(cfg.units >= 100) add(-2.0, `${cfg.units} units — boutique`);
+  else add(-3.0, `${cfg.units} units — "not rich, no niche"`);
+
+  if(v){
+    if(v.last24 >= 40) add(1.0, `${v.last24} prints in 24 months — strong velocity`);
+    else if(v.last24 >= 15) add(0.5, `${v.last24} prints in 24 months`);
+    else if(v.last24 >= 5) add(0, `${v.last24} prints in 24 months — thin`);
+    else if(v.last24 >= 1) add(-1.0, `only ${v.last24} prints in 24 months`);
+    else add(-2.0, 'zero prints in 24 months — the Lilium problem');
+
+    if(v.cagr != null && v.distCagr != null){
+      if(v.cagr > v.distCagr + 0.5) add(0.5, `PSF CAGR ${v.cagr}% beats its district (${v.distCagr}%)`);
+      else if(v.cagr < v.distCagr - 0.5) add(-0.5, `PSF CAGR ${v.cagr}% trails its district (${v.distCagr}%)`);
+    }
+  }
+
+  if(cfg.beds >= 3) add(1.0, `${cfg.beds}-bedroom — family unit`);
+  else if(cfg.beds === 2 && cfg.baths >= 2) add(0, '2-bed 2-bath — the minimum');
+  else if(cfg.beds === 2) add(-2.0, '2-bed 1-bath — the housewarming toilet problem');
+  else add(-1.5, `${cfg.beds}-bedroom — investor oversupply, stagnant appreciation`);
+
+  if(cfg.ptype === 'Executive Condominium') add(2.0, 'EC — subsidised entry and a forced hold');
+  if(cfg.segment === 'CCR') add(-1.5, 'CCR — no upgrader pool, thin volume');
+  else if(cfg.segment) add(0.5, `${cfg.segment} — where the capital gains are`);
+
+  if(cfg.ptype === 'Landed'){
+    if(cfg.tenure === 'Freehold') add(1.0, 'Freehold landed');
+    else add(-3.0, '99-year leasehold landed — lease decay and stagnation');
+  }
+  if(cfg.leaseRemaining != null && cfg.leaseRemaining < 70)
+    add(-2.0, `${Math.round(cfg.leaseRemaining)} years of lease left — in decay`);
+  if(cfg.tenure === 'Freehold' && cfg.units != null && cfg.units < 200 && cfg.beds <= 2)
+    add(-0.5, 'Freehold boutique with small units — "the worst combination ever"');
+  if(cfg.mop) add(1.0, 'HDB blocks reaching MOP nearby — a named buyer pool');
+  if(cfg.supply >= 4) add(-1.0, `${cfg.supply} competing launches in the enclave`);
+  if(cfg.loss) add(-1.0, 'Neighbouring projects have a documented loss history');
+  return {score: clamp(s,1,10), notes};
+}
+
+/* ── vetoes ──────────────────────────────────────────────── */
+function flags(cfg, v, fv){
+  const out = [];
+  const veto = (t,b) => out.push({kind:'veto', t, b});
+  const warn = (t,b) => out.push({kind:'warn', t, b});
+  const ok   = (t,b) => out.push({kind:'ok', t, b});
+
+  if(cfg.beds === 2 && cfg.baths < 2)
+    veto('2-bed, 1-bath', 'Guests walk through the master bedroom to reach the toilet. Eric’s hard no — minimum 2-bed 2-bath.');
+  if(cfg.ptype === 'Landed' && cfg.tenure !== 'Freehold')
+    veto('99-year leasehold landed', 'Lease decay and price stagnation. Villa Verde: $2.27M in 2022, still $2.25–2.35M in 2026.');
+  if(cfg.units != null && cfg.units < 100)
+    veto(`${cfg.units}-unit boutique`, '"Not rich, no niche." No transaction volume means no valuation support and no exit.');
+  else if(cfg.units != null && cfg.units < 400)
+    warn(`${cfg.units} units`, 'Below Eric’s 400-unit floor. Every resale should be setting a new benchmark — with this few, none do.');
+  if(cfg.mrt != null && cfg.mrt > 1000)
+    veto(`MRT ${cfg.mrt} m away`, 'Zero tolerance beyond 400–500 m. This is the LakeGarden problem.');
+  else if(cfg.mrt != null && cfg.mrt > 500)
+    warn(`MRT ${cfg.mrt} m away`, 'Outside the 400–500 m rule. Exitability suffers first, then price.');
+  if(cfg.segment === 'OCR' && cfg.psf > K.OCR_THRESHOLD)
+    veto(`$${Math.round(cfg.psf).toLocaleString()} psf in the OCR`, 'Above $2,500 psf is "disgusting" — no room left for capital appreciation.');
+  if(cfg.segment === 'CCR')
+    warn('CCR', 'Avoid the Core Central Region for capital gains: thin volume, no HDB upgrader pool, 60% ABSD on foreign buyers. OCR makes roughly 3x the capital gains.');
+  if(cfg.beds <= 2 && cfg.ptype !== 'Landed')
+    warn(`${cfg.beds}-bedroom for investment`, 'Below the three-bedroom minimum. Investor oversupply, high tenant turnover, historically stagnant appreciation.');
+  if(v && v.last24 === 0)
+    veto('Frozen resale market', 'Zero transactions in 24 months in this project. This is exactly the Lilium case.');
+  if(cfg.leaseRemaining != null && cfg.leaseRemaining < 70)
+    warn(`${Math.round(cfg.leaseRemaining)} years of lease left`, 'Below 70 years the decay accelerates and financing tightens.');
+  if(!cfg.kitchen)
+    warn('Kitchen "cannot walk"', 'Induction-only with no kitchen window. A lower standard of living and a harder sell to families.');
+  if(cfg.introvert)
+    warn('Low-density location', 'Crowded places make money. Introvert areas lack the foot traffic that drives prices.');
+  if(cfg.supply >= 4)
+    warn(`${cfg.supply} competing launches`, 'Every neighbouring launch competes with your exit — the Lentor oversupply problem.');
+
+  if(!out.length) ok('No hard vetoes', 'This listing clears every one of Eric’s absolute rules.');
+  if(cfg.mop) ok('Named buyer pool', 'HDB blocks reaching MOP nearby — upgraders who made 2–2.5x on their flat are the ones who buy this from you.');
+  if(v && v.last24 >= 40) ok(`${v.last24} prints in 24 months`, 'High transaction volume: every resale resets the benchmark the banks value the block against.');
+  return out;
+}
+
+/* ── verdict ─────────────────────────────────────────────── */
+function verdict(gap){
+  if(gap == null) return {cls:'none', label:'NO COMPS', line:'Not enough transactions to value this unit.'};
+  const g = gap*100;
+  if(g >= 8)  return {cls:'under', label:'UNDERVALUED', line:'Eric’s "undervalue gem" territory — the entry price does the work.'};
+  if(g >= 2)  return {cls:'good',  label:'GOOD ENTRY',  line:'Priced below the comps with room left to run.'};
+  if(g >= -2) return {cls:'fair',  label:'FAIRLY PRICED', line:'At market. You make money from the exit, not the entry.'};
+  if(g >= -10)return {cls:'rich',  label:'RICH',        line:'Above the comps. Negotiate the gap out or walk.'};
+  return {cls:'over', label:'OVERVALUED', line:'No room left for capital appreciation at this price.'};
+}
+
+/* ── run ─────────────────────────────────────────────────── */
+function readCfg(){
+  const price = num('price'), size = num('size');
+  const leaseYear = num('leaseYear'), tenure = $('tenure').value;
+  let leaseRemaining = null;
+  if(tenure === '99-year' && leaseYear) leaseRemaining = 99 - (new Date().getFullYear() - leaseYear);
+  let project = $('project').value.trim();
+  if(project && DS){
+    const exact = DS.projects.find(p => p.toUpperCase() === project.toUpperCase());
+    project = exact || DS.projects.find(p => p.toUpperCase().includes(project.toUpperCase())) || project;
+  }
+  let district = $('district').value.trim().toUpperCase();
+  if(district && !district.startsWith('D')) district = 'D' + district.padStart(2,'0');
+  let segment = $('segment').value;
+
+  if(DS && project && DS.byProject.has(project)){
+    const r = DS.byProject.get(project)[0];
+    if(!district) district = DS.dec('district', r[DS.CI.district]);
+    if(!segment) segment = DS.dec('marketSegment', r[DS.CI.marketSegment]);
+  }
+  return {
+    project, district, segment, price, size,
+    psf: price && size ? price/size : null,
+    beds: +$('beds').value, baths: +$('baths').value, floor: +$('floor').value,
+    tenure, leaseRemaining, topYear: num('topYear'),
+    units: num('units'), mrt: num('mrt'),
+    schools: +$('schools').value, mall: +$('mall').value,
+    supply: num('supply') || 0, ptype: $('ptype').value,
+    density: $('density').checked, introvert: $('introvert').checked,
+    noise: $('noise').checked, view: $('view').checked,
+    mop: $('mop').checked, loss: $('loss').checked, kitchen: $('kitchen').checked,
+    months: +$('months').value, tol: +$('tol').value,
+    benchmark: $('benchmark').value.trim(),
+    ...ageGapOf(),
+    harmonise: $('harmonise').checked,
+  };
+}
+
+/* Age gap = subject TOP − benchmark TOP, unless typed over. benchAge (today) picks the rate. */
+function ageGapOf(){
+  const benchTop = num('benchTop'), subjTop = num('topYear');
+  let ageGap = num('ageGap');
+  if(ageGap == null && benchTop && subjTop) ageGap = subjTop - benchTop;
+  return {ageGap, benchAge: benchTop ? new Date().getFullYear() - benchTop : null};
+}
+
+function refreshGapHint(){
+  const {ageGap, benchAge} = ageGapOf();
+  const el = $('gapHint');
+  if(ageGap == null){
+    el.innerHTML = '<b>Age gap</b> = your TOP year − the benchmark\'s TOP year. Eric adds '
+      + '<b>$50 psf for every year</b> the benchmark is older. Fill in both TOP years and this '
+      + 'computes itself; type a number to override.';
+    el.style.color = '';
+    return;
+  }
+  const rate = (benchAge != null && benchAge >= 20) ? K.AGE_PSF_OLD : K.AGE_PSF_YOUNG;
+  const d = ageGap * rate;
+  el.innerHTML = `<b>Age gap ${ageGap > 0 ? '+' : ''}${ageGap} yrs</b> × $${rate}/yr = `
+    + `<b>${d >= 0 ? '+' : '−'}$${Math.abs(d).toLocaleString()} psf</b> on the ladder`
+    + (num('ageGap') != null ? ' (your override)' : ' — computed from the two TOP years')
+    + (benchAge != null ? `. Benchmark is ${benchAge} yrs old today.` : '.');
+  el.style.color = 'var(--blue)';
+}
+['benchTop','topYear','ageGap'].forEach(id => $(id).addEventListener('input', refreshGapHint));
+
+/* Data-driven answer to "which benchmark?": same district, same bedroom count,
+   resale-heavy (the proxy for an established older project), plenty of prints. */
+function suggestBenchmarks(){
+  if(!DS) return;
+  const cfg = readCfg(), C = DS.CI, cut = cutoff(cfg.months);
+  const box = $('suggestions');
+  const bedCode = DS.code('bedroomType', bedLabel(cfg.beds));
+  const distCode = cfg.district ? DS.code('district', cfg.district) : null;
+  const segCode = cfg.segment ? DS.code('marketSegment', cfg.segment) : null;
+  const projCode = cfg.project ? DS.code('project', cfg.project) : null;
+  if(distCode == null && segCode == null){
+    box.innerHTML = `<div class="hint" style="color:var(--orange)">Set a district or segment first —
+      a benchmark has to be somewhere comparable.</div>`;
+    return;
+  }
+
+  const agg = new Map();
+  for(const r of DS.D.rows){
+    if(!newer(r, cut)) continue;
+    if(bedCode != null && r[C.bedroomType] !== bedCode) continue;
+    if(projCode != null && r[C.project] === projCode) continue;
+    const inScope = distCode != null ? r[C.district] === distCode
+                                     : r[C.marketSegment] === segCode;
+    if(!inScope) continue;
+    let a = agg.get(r[C.project]);
+    if(!a){ a = {psf:[], resale:0, n:0}; agg.set(r[C.project], a); }
+    a.psf.push(r[C.psf]); a.n++;
+    if(DS.dec('saleType', r[C.saleType]) === 'Resale') a.resale++;
+  }
+
+  const list = [...agg.entries()]
+    .map(([code,a]) => ({name: DS.dec('project', code), n: a.n,
+                         psf: Math.round(median(a.psf)),
+                         resalePct: Math.round(a.resale/a.n*100)}))
+    .filter(x => x.n >= 5 && x.resalePct >= 60)
+    .sort((a,b) => b.n - a.n)
+    .slice(0, 6);
+
+  if(!list.length){
+    box.innerHTML = `<div class="hint" style="color:var(--orange)">No resale-heavy ${bedLabel(cfg.beds)}
+      projects with enough prints in ${cfg.district || cfg.segment}. Widen the window, or name a
+      benchmark one district over.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="sugg">${list.map(x =>
+    `<div class="s" data-name="${x.name.replace(/"/g,'&quot;')}">
+       <b>${x.name}</b><span>$${x.psf.toLocaleString()} psf · ${x.n} prints · ${x.resalePct}% resale</span>
+     </div>`).join('')}</div>
+    <div class="hint">Ranked by transaction count, filtered to 60%+ resale — that share is the
+      signal a project is established rather than still selling new units. Click one to use it,
+      then enter its TOP year above.</div>`;
+  box.querySelectorAll('.s').forEach(el => el.onclick = () => {
+    $('benchmark').value = el.dataset.name;
+    box.querySelectorAll('.s').forEach(x => x.style.borderColor = '');
+    el.style.borderColor = 'var(--blue)';
+  });
+}
+
+function run(){
+  if(!DS) return;
+  const cfg = readCfg();
+  if(!cfg.price || !cfg.size){
+    $('out').innerHTML = `<div class="card"><div class="empty">Enter an asking price and a size — everything else keys off the PSF.</div></div>`;
+    return;
+  }
+  if(cfg.benchmark && DS.projects.includes(cfg.benchmark) === false){
+    const m = DS.projects.find(p => p.toUpperCase().includes(cfg.benchmark.toUpperCase()));
+    if(m) cfg.benchmark = m;
+  }
+
+  const comps = buildComps(cfg);
+  const v = cfg.project && DS.byProject.has(cfg.project) ? vitals(cfg.project, cfg.district) : null;
+  const fv = fairValue(cfg, comps);
+  const gap = fv ? (fv.fairPsf - cfg.psf)/fv.fairPsf : null;
+  const vd = verdict(gap);
+
+  const loc = scoreLocation(cfg), pri = scorePricing(cfg, fv, comps), ex = scoreExit(cfg, v);
+  const final = +(((loc.score + pri.score + ex.score)/3).toFixed(1));
+  const fl = flags(cfg, v, fv);
+
+  render({cfg, comps, v, fv, gap, vd, loc, pri, ex, final, fl});
+}
+
+/* ── render ──────────────────────────────────────────────── */
+function render(R){
+  const {cfg, comps, v, fv, gap, vd, loc, pri, ex, final, fl} = R;
+  const band = final>=8?'Buy — "you cannot lose money" tier':final>=7?'Solid, worth shortlisting'
+    :final>=6?'Marginal — only with a price concession':final>=5?'Weak — the exit is the problem':'Avoid';
+
+  let h = '';
+
+  h += `<div class="verdict ${vd.cls}">
+    <div class="v-top">
+      <div>
+        <div class="v-label">${vd.label}</div>
+        <div class="v-sub">${vd.line}</div>
+      </div>
+      <div class="v-score"><div class="num">${final}</div><div class="cap">out of 10</div></div>
+    </div>
+    <div class="v-nums">
+      <div class="v-num"><div class="k">Asking</div><div class="v">${psfFmt(cfg.psf)}</div></div>
+      <div class="v-num"><div class="k">Fair value</div><div class="v">${fv?psfFmt(fv.fairPsf):'—'}</div></div>
+      <div class="v-num"><div class="k">Gap</div><div class="v">${gap==null?'—':(gap>=0?'+':'')+(gap*100).toFixed(1)+'%'}</div></div>
+      <div class="v-num"><div class="k">Fair quantum</div><div class="v">${fv?money(fv.fairPsf*cfg.size):'—'}</div></div>
+      <div class="v-num"><div class="k">Rating</div><div class="v" style="font-size:13px">${band}</div></div>
+    </div>
+  </div>`;
+
+  const sc = (s, label, colour) => `<div class="score" style="border-top-color:${colour}">
+    <div class="lab">${label}</div>
+    <div class="val" style="color:${colour}">${s.score.toFixed(1)}</div>
+    <div class="bar"><span style="width:${s.score*10}%;background:${colour}"></span></div>
+    <ul>${s.notes.filter(n=>n.d!==0||n.why.includes('unknown')||n.why.includes('neutral'))
+      .slice(0,6).map(n=>`<li><span>${n.why}</span><b class="${n.d>0?'pos':n.d<0?'neg':''}">${n.d>0?'+':''}${n.d||''}</b></li>`).join('')}</ul>
+  </div>`;
+  h += `<div class="scores">
+    ${sc(loc,'Location','#2c4a8c')}${sc(pri,'Entry pricing','#0891b2')}${sc(ex,'Exit strategy','#16a34a')}
+  </div>`;
+
+  if(fv){
+    h += `<div class="card"><h2>Fair value ladder <span class="sub">${fv.sameProject?'like-for-like, same project':'benchmark ladder'}</span></h2>
+      <table class="ladder"><tbody>
+      ${fv.steps.map((s,i)=>`<tr class="${i?'step':''}">
+        <td>${s.label}</td>
+        <td class="num ${s.delta>0?'pos':s.delta<0?'neg':''}">${s.delta==null?''
+          :(s.delta>0?'+$':'−$')+Math.abs(s.delta).toLocaleString()}</td>
+        <td class="num">${psfFmt(s.running)}</td></tr>`).join('')}
+      <tr class="total"><td>Fair value</td><td class="num"></td><td class="num">${psfFmt(fv.fairPsf)}</td></tr>
+      <tr class="total"><td>Asking</td><td class="num"></td><td class="num">${psfFmt(cfg.psf)}</td></tr>
+      <tr class="total"><td>Fair quantum at ${cfg.size.toLocaleString()} sqft</td><td class="num"></td>
+        <td class="num">${money(fv.fairPsf*cfg.size)}</td></tr>
+      </tbody></table></div>`;
+  }
+
+  h += `<div class="card"><h2>Red flags</h2>${fl.map(f=>
+    `<div class="flag ${f.kind}"><div><b>${f.kind==='veto'?'VETO — ':''}${f.t}</b>${f.b}</div></div>`).join('')}</div>`;
+
+  if(v){
+    h += `<div class="card"><h2>Project vitals <span class="sub">${v.project} · ${v.district} ${v.segment} · ${v.tenure} · ${v.ptype}</span></h2>
+      <div class="vitals">
+        <div class="vital"><div class="k">Transactions</div><div class="v">${v.n.toLocaleString()}</div><div class="n">since 2021</div></div>
+        <div class="vital"><div class="k">Last 24 months</div><div class="v">${v.last24}</div><div class="n">${v.velocity} velocity</div></div>
+        <div class="vital"><div class="k">PSF CAGR</div><div class="v">${v.cagr==null?'—':v.cagr+'%'}</div><div class="n">district ${v.distCagr==null?'—':v.distCagr+'%'}</div></div>
+        <div class="vital"><div class="k">vs district</div><div class="v" style="font-size:13px">${
+          v.cagr==null||v.distCagr==null?'—':v.cagr>v.distCagr+0.5?'outperforming':v.cagr<v.distCagr-0.5?'underperforming':'in line'}</div></div>
+        <div class="vital"><div class="k">Size range</div><div class="v" style="font-size:13px">${v.sizeMin}–${v.sizeMax}</div><div class="n">sqft transacted</div></div>
+      </div>
+      <div style="height:190px;margin-top:14px"><canvas id="trend"></canvas></div>
+    </div>`;
+  }
+
+  const tiers = [['t1',comps.t1],['bench',comps.bench],['t2',comps.t2],['t3',comps.t3]].filter(([k,t])=>t.n);
+  if(tiers.length){
+    h += `<div class="card"><h2>Comparable transactions <span class="sub">URA prints, last ${cfg.months} months</span></h2>
+      <div class="tabs">${tiers.map(([k,t],i)=>
+        `<div class="tab ${i===0?'active':''}" data-tier="${k}">${t.label} · ${t.n}</div>`).join('')}</div>
+      ${tiers.map(([k,t],i)=>`<div class="tierbox" data-tier="${k}" style="display:${i?'none':'block'}">
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px">
+          median <b style="color:var(--text)">${psfFmt(t.psfMed)}</b> ·
+          p25 ${psfFmt(t.p25)} · p75 ${psfFmt(t.p75)} ·
+          median price ${money(t.priceMed)} · ${t.from} → ${t.to}
+        </div>
+        <div class="scroll"><table><thead><tr>
+          <th>Date</th><th>Project</th><th class="num">Size</th><th class="num">PSF</th>
+          <th class="num">Price</th><th>Floor</th><th>Type</th><th>Tenure</th></tr></thead><tbody>
+          ${t.rows.slice(0,20).map(r=>`<tr>
+            <td>${r.year}-${String(r.month).padStart(2,'0')}</td>
+            <td>${r.project}</td><td class="num">${r.size.toLocaleString()}</td>
+            <td class="num">$${r.psf.toLocaleString()}</td><td class="num">${money(r.price)}</td>
+            <td>${r.floor}</td>
+            <td><span class="pill ${r.saleType==='New Sale'?'b-ns':r.saleType==='Resale'?'b-re':'b-ss'}">${r.saleType}</span></td>
+            <td>${r.tenure && r.tenure!=='Unknown'
+              ? `<span class="pill ${r.tenure==='Freehold'?'b-fh':'b-lh'}">${r.tenure}</span>`
+              : '<span style="color:var(--muted)">—</span>'}</td>
+          </tr>`).join('')}
+        </tbody></table></div></div>`).join('')}
+    </div>`;
+  } else {
+    h += `<div class="card"><div class="empty">No comparable transactions in the last ${cfg.months} months.<br>
+      Widen the window, loosen the size band, or set a benchmark project — a project with no prints
+      is itself the finding.</div></div>`;
+  }
+
+  // Exit + opportunity cost.
+  // A district's raw CAGR is inflated by mix shift — new launches entering the sample drag the
+  // median up without any single unit appreciating that fast. Clamp it before compounding.
+  const holdYears = 4;
+  const rawCagr = (v && v.cagr != null) ? v.cagr : (v && v.distCagr != null ? v.distCagr : null);
+  const override = num('growth');
+  let growthPct, growthWhy;
+  if(override != null){
+    growthPct = override; growthWhy = 'your assumption';
+  } else if(rawCagr == null){
+    growthPct = 3; growthWhy = 'no measurable trend — 3%/yr default';
+  } else if(rawCagr < 0 || rawCagr > 5){
+    growthPct = 3;
+    growthWhy = `measured ${rawCagr.toFixed(1)}%/yr is outside a plausible 0–5% band ` +
+      (rawCagr > 5 ? '(new-launch mix shift inflates it)' : "(the project's own trend is negative)") +
+      ' — using 3%';
+  } else {
+    growthPct = rawCagr; growthWhy = 'measured trend';
+  }
+  const growth = growthPct/100;
+  const exitPsf = fv ? fv.fairPsf * Math.pow(1+growth, holdYears) : null;
+  const exitPrice = exitPsf ? exitPsf * cfg.size : null;
+  const rentMonthly = cfg.segment === 'CCR' ? 7000 : cfg.segment === 'RCR' ? 6000 : 4500;
+  const netRent4 = rentMonthly * 12 * 0.75 * holdYears;
+  const isNewLaunch = cfg.topYear && cfg.topYear > new Date().getFullYear();
+  const waitYears = isNewLaunch ? Math.min(3, cfg.topYear - new Date().getFullYear()) : 0;
+
+  h += `<div class="card"><h2>Exit strategy &amp; opportunity cost <span class="sub">${holdYears}-year hold</span></h2>
+    <table><tbody>
+      <tr><td>Who buys this from you</td><td>${cfg.mop
+        ? 'HDB upgraders from the MOP wave nearby — they made 2–2.5&times; on their flat and want a condo in the same estate.'
+        : '<b style="color:var(--red)">No named buyer pool.</b> Eric’s second question is unanswered — that alone sinks the listing.'}</td></tr>
+      <tr><td>Projected exit PSF</td><td class="num">${exitPsf?psfFmt(exitPsf):'—'}
+        <span style="color:var(--muted)">at ${growthPct.toFixed(1)}%/yr — ${growthWhy}</span></td></tr>
+      <tr><td>Projected exit price</td><td class="num">${exitPrice?money(exitPrice):'—'}</td></tr>
+      <tr><td>Gross capital gain</td><td class="num">${exitPrice?money(exitPrice-cfg.price):'—'}</td></tr>
+      ${isNewLaunch
+        ? `<tr><td>Rent paid while waiting for TOP</td><td class="num neg">−${money(rentMonthly*12*waitYears)} <span style="color:var(--muted)">${waitYears} yrs &times; ${money(rentMonthly)}/mo</span></td></tr>
+           <tr><td><b>Net after holding cost</b></td><td class="num"><b>${exitPrice?money(exitPrice-cfg.price-rentMonthly*12*waitYears):'—'}</b></td></tr>`
+        : `<tr><td>Net rental income over the hold</td><td class="num pos">+${money(netRent4)} <span style="color:var(--muted)">${money(rentMonthly)}/mo, 25% to costs</span></td></tr>
+           <tr><td><b>Total return — resale, immediate income</b></td><td class="num"><b>${exitPrice?money(exitPrice-cfg.price+netRent4):'—'}</b></td></tr>`}
+    </tbody></table>
+    <div class="hint" style="margin-top:9px">${isNewLaunch
+      ? 'A new launch earns nothing for three years and pays rent instead. Eric’s AMO comparison: the resale 3-bedder cleared $580k against the top new launch’s $450k.'
+      : 'Resale collects rent from day one — the leg new launches cannot match. Pull the real median rent with <code>ura_live.py --service PMI_Resi_Rental_Median</code>.'}</div>
+  </div>`;
+
+  $('out').innerHTML = h;
+
+  // tabs
+  document.querySelectorAll('.tab[data-tier]').forEach(t=>t.onclick = ()=>{
+    document.querySelectorAll('.tab[data-tier]').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelectorAll('.tierbox').forEach(b=>
+      b.style.display = b.dataset.tier === t.dataset.tier ? 'block' : 'none');
+  });
+
+  if(v) drawTrend(v, cfg);
+}
+
+let chart;
+function drawTrend(v, cfg){
+  const el = document.getElementById('trend');
+  if(!el) return;
+  const years = [...new Set([...Object.keys(v.yearMed), ...Object.keys(v.distMed)])].sort();
+  if(chart) chart.destroy();
+  chart = new Chart(el, {
+    type:'line',
+    data:{labels:years, datasets:[
+      {label:v.project, data:years.map(y=>v.yearMed[y]??null), borderColor:'#2c4a8c',
+       backgroundColor:'rgba(44,74,140,.08)', borderWidth:2.5, tension:.3, fill:true, spanGaps:true},
+      {label:`District ${v.district} median`, data:years.map(y=>v.distMed[y]??null), borderColor:'#d97706',
+       borderWidth:2, borderDash:[5,4], tension:.3, fill:false, spanGaps:true},
+      {label:'This listing', data:years.map(y=> y===years[years.length-1] ? Math.round(cfg.psf) : null),
+       borderColor:'#C0392B', backgroundColor:'#C0392B', pointRadius:6, pointStyle:'rectRot',
+       showLine:false},
+    ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:12, font:{size:11}}}},
+      scales:{y:{ticks:{callback:v=>'$'+v.toLocaleString(), font:{size:10}}},
+              x:{ticks:{font:{size:10}}}}}
+  });
+}
+
+/* ── listing parser ──────────────────────────────────────── */
+function parseListing(){
+  const raw = $('paste').value;
+  if(!raw.trim()) return;
+  // Copied listings arrive full of non-breaking spaces, bullets and smart dashes.
+  const t = raw.replace(/[   ]/g,' ').replace(/[–—]/g,'-');
+  const found = [], missing = [];
+  let m;
+
+  // ── PSF first: it must not be mistaken for the asking price, and it can
+  //    reconstruct a missing size or price.
+  let psf = null;
+  m = t.match(/(?:S?\$|SGD)?\s*([\d,]+(?:\.\d+)?)\s*(?:psf|pptx?|per\s*sq\.?\s*(?:ft|foot)|\/\s*sq\.?\s*ft)/i);
+  if(m) psf = parseFloat(m[1].replace(/,/g,''));
+
+  // ── price: scan every money figure, keep the largest plausible one.
+  //    Listings often show psf, monthly rent and maintenance fees alongside the price.
+  let price = null;
+  const moneyRe = /(?:S?\$|SGD)\s*([\d,]+(?:\.\d+)?)\s*(m\b|mil\b|million\b)?/gi;
+  let mm;
+  while((mm = moneyRe.exec(t)) !== null){
+    let val = parseFloat(mm[1].replace(/,/g,''));
+    if(mm[2] || (val >= 0.3 && val < 100)) val *= 1_000_000;   // "2.65M", "2.65 mil"
+    if(psf && Math.abs(val - psf) < 1) continue;               // that figure was the psf
+    if(val >= 200_000 && val <= 100_000_000 && (price == null || val > price)) price = val;
+  }
+
+  // Agent blurbs often drop the currency entirely: "asking 3.15 mil", "2,650,000 neg".
+  if(price == null){
+    m = t.match(/(\d+(?:\.\d+)?)\s*(?:m\b|mil\b|million\b)/i);
+    if(m) price = parseFloat(m[1]) * 1_000_000;
+  }
+  if(price == null){
+    // Comma-separated only — a bare 6-digit run is far more likely to be a postal code.
+    const bareRe = /\b(\d{1,3}(?:,\d{3}){2,3})\b/g;
+    let bm;
+    while((bm = bareRe.exec(t)) !== null){
+      const val = parseFloat(bm[1].replace(/,/g,''));
+      if(val >= 200_000 && val <= 100_000_000 && (price == null || val > price)) price = val;
+    }
+  }
+
+  // ── size: sqft, sq ft, ft², or sqm converted
+  let size = null;
+  m = t.match(/([\d,]+(?:\.\d+)?)\s*(?:sq\.?\s*ft|sqft|ft²|ft2|square\s*feet)/i);
+  if(m) size = Math.round(parseFloat(m[1].replace(/,/g,'')));
+  else {
+    m = t.match(/([\d,]+(?:\.\d+)?)\s*(?:sq\.?\s*m|sqm|m²|square\s*met)/i);
+    if(m) size = Math.round(parseFloat(m[1].replace(/,/g,''))*10.7639);
+  }
+
+  // fill the third value from the other two
+  if(size == null && price && psf) size = Math.round(price/psf);
+  if(price == null && size && psf) price = Math.round(size*psf);
+
+  if(price){ $('price').value = Math.round(price); found.push('price'); } else missing.push('price');
+  if(size){ $('size').value = size; found.push('size'); } else missing.push('size');
+
+  // ── beds / baths — note the plurals: "3 Beds", "2 Baths"
+  if(/\bstudio\b/i.test(t)){ $('beds').value = '1'; found.push('studio'); }
+  else {
+    m = t.match(/(\d)\s*[-\s]?\s*(?:bed(?:room)?s?|br|bdrm?s?)\b/i);
+    if(m){ $('beds').value = String(Math.min(5, +m[1])); found.push('bedrooms'); }
+    else missing.push('bedrooms');
+  }
+  m = t.match(/(\d)\s*[-\s]?\s*(?:bath(?:room)?s?|ba\b|toilets?)/i);
+  if(m){ $('baths').value = String(Math.min(4, +m[1])); found.push('baths'); }
+  else missing.push('bathrooms');
+
+  // ── district: "D15", "District 15", "(D15)"
+  m = t.match(/\bD\s?(\d{1,2})\b/) || t.match(/district\s*(\d{1,2})/i);
+  if(m){ $('district').value = 'D' + m[1].padStart(2,'0'); found.push('district'); }
+
+  // ── tenure
+  if(/free\s*hold/i.test(t)){ $('tenure').value = 'Freehold'; found.push('tenure'); }
+  else if(/999[\s-]?(?:year|yr)/i.test(t)){ $('tenure').value = '999-year'; found.push('tenure'); }
+  else if(/99[\s-]?(?:year|yr)|leasehold/i.test(t)){ $('tenure').value = '99-year'; found.push('tenure'); }
+  m = t.match(/(?:lease\s*commenc\w*(?:\s*from)?|commencing\s*from|lease\s*from)\s*((?:19|20)\d{2})/i);
+  if(m){ $('leaseYear').value = m[1]; found.push('lease year'); }
+
+  // ── TOP / completion
+  m = t.match(/(?:TOP|completion|completed|est\.?\s*completion|built|year\s*built)\s*(?:in|:|year)?\s*((?:19|20)\d{2})/i);
+  if(m){ $('topYear').value = m[1]; found.push('TOP'); }
+
+  // ── total units, either order
+  m = t.match(/([\d,]{3,6})\s*(?:total\s*)?units\b/i) || t.match(/(?:total\s*)?units?\s*[:\-]\s*([\d,]{2,6})/i);
+  if(m){ $('units').value = parseInt(m[1].replace(/,/g,''),10); found.push('units'); }
+
+  // ── floor: "#12-34" is the standard SG unit number, else "12th floor"
+  m = t.match(/#\s*(\d{1,2})\s*-\s*\d{1,4}/);
+  if(!m) m = t.match(/(\d{1,2})\s*(?:st|nd|rd|th)?\s*(?:floor|storey|storeys|level)/i);
+  if(m){ const f = +m[1];
+    $('floor').value = f<=5?'3':f<=10?'8':f<=15?'13':f<=20?'18':f<=25?'23':'30'; found.push('floor'); }
+
+  // ── project: longest dataset name appearing anywhere in the text
+  let matched = null;
+  if(DS){
+    const up = t.toUpperCase();
+    for(const p of DS.projects){
+      if(p.length >= 5 && up.includes(p.toUpperCase()) && (!matched || p.length > matched.length)) matched = p;
+    }
+  }
+  if(matched){ $('project').value = matched; found.push('project'); }
+  else {
+    // Fall back to the first line that reads like a name — listings almost always lead with it.
+    const line = t.split('\n').map(s=>s.trim())
+      .find(s => s.length>3 && s.length<60 && /[a-z]/i.test(s) && !/[$%]/.test(s)
+                 && !/^\d/.test(s) && s.split(/\s+/).length <= 7);
+    if(line){ $('project').value = line; }
+  }
+
+  // ── report honestly
+  const hint = $('projHint');
+  const proj = $('project').value.trim();
+  const inData = DS && proj && DS.projects.some(p=>p.toUpperCase()===proj.toUpperCase());
+  let msg = found.length ? 'Parsed: ' + found.join(', ') + '.' : 'Nothing recognised.';
+  if(missing.length) msg += ' Missing: ' + missing.join(', ') + ' — fill these in.';
+  if(proj && !inData) msg += ` "${proj}" isn't in the URA dataset — either it's a new launch `
+    + '(set a benchmark project) or the name needs correcting.';
+  hint.textContent = msg;
+  hint.style.color = missing.length ? 'var(--orange)' : found.length ? 'var(--green)' : 'var(--red)';
+
+  if(price && size) run();
+}
+
+/* ── project autofill ────────────────────────────────────── */
+$('project').addEventListener('change', ()=>{
+  if(!DS) return;
+  const name = $('project').value.trim();
+  const p = DS.projects.find(x=>x.toUpperCase() === name.toUpperCase())
+         || DS.projects.find(x=>x.toUpperCase().includes(name.toUpperCase()));
+  const hint = $('projHint');
+  if(!p){ hint.textContent = 'Not in the URA dataset — likely a brand-new launch. Set a benchmark project below.';
+          hint.style.color = 'var(--orange)'; return; }
+  $('project').value = p;
+  const rows = DS.byProject.get(p), r = rows[0], C = DS.CI;
+  $('district').value = DS.dec('district', r[C.district]);
+  $('segment').value = DS.dec('marketSegment', r[C.marketSegment]);
+  const ten = DS.dec('tenure', r[C.tenure]);
+  if(['99-year','Freehold','999-year'].includes(ten)) $('tenure').value = ten;
+  if(DS.dec('propertyType', r[C.propertyType]) === 'Executive Condominium')
+    $('ptype').value = 'Executive Condominium';
+  const cut = cutoff(24), last24 = rows.filter(x=>newer(x,cut)).length;
+  hint.textContent = `${rows.length.toLocaleString()} prints since 2021, ${last24} in the last 24 months.`;
+  hint.style.color = 'var(--muted)';
+});
+
+$('btnRun').onclick = run;
+$('btnParse').onclick = parseListing;
+$('btnSuggest').onclick = suggestBenchmarks;
+$('btnClear').onclick = ()=>{
+  ['paste','project','price','size','district','leaseYear','topYear','units','mrt','benchmark',
+   'benchTop','ageGap','growth'].forEach(i=>$(i).value='');
+  $('suggestions').innerHTML = '';
+  refreshGapHint();
+  // Dropdowns and checkboxes keep their last value otherwise, silently carrying
+  // one listing's tenure or floor into the next.
+  const defaults = {beds:'3', baths:'2', floor:'8', segment:'', tenure:'99-year',
+                    schools:'0', mall:'0', ptype:'Condo / Apartment', months:'18', tol:'0.15'};
+  Object.entries(defaults).forEach(([k,v])=>$(k).value = v);
+  $('supply').value = 0;
+  Object.entries({density:true, introvert:false, noise:false, view:false,
+                  mop:true, loss:false, kitchen:true, harmonise:true})
+    .forEach(([k,v])=>$(k).checked = v);
+  $('projHint').textContent = '';
+  $('out').innerHTML = `<div class="card"><div class="empty">Cleared. Paste a listing or fill the fields in.</div></div>`;
+};
+document.querySelectorAll('input,select').forEach(el=>{
+  el.addEventListener('keydown', e=>{ if(e.key === 'Enter') run(); });
+});
+
+loadData();
+</script>
+</body>
+</html>
