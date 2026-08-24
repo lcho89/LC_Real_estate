@@ -443,7 +443,15 @@ Write-Host ''
 # Write ura_data.js — compact columnar payload, matching fetch_ura_data.py.
 $fetchedAt = (Get-Date).ToString('yyyy-MM-dd')
 
-$writer = New-Object System.IO.StreamWriter($Out, $false, (New-Object System.Text.UTF8Encoding $false))
+# StreamWriter resolves a relative path against .NET's current directory, which
+# is NOT PowerShell's location - they diverge whenever the session was started
+# somewhere other than the folder you cd'd into. Left relative, the file lands in
+# an unrelated directory while Resolve-Path below happily reports the path you
+# expected, because a stale copy already sits there. Make it absolute first.
+$outPath = if ([System.IO.Path]::IsPathRooted($Out)) { $Out }
+           else { Join-Path (Get-Location).ProviderPath $Out }
+
+$writer = New-Object System.IO.StreamWriter($outPath, $false, (New-Object System.Text.UTF8Encoding $false))
 try {
     $writer.Write("// URA Real Data $([char]0x2014) $fetchedAt $([char]0x2014) $($allRecords.Count) records`n")
     $writer.Write('window.URA_DATA={"cols":[')
@@ -466,11 +474,10 @@ try {
     $writer.Dispose()
 }
 
-$outFull = (Resolve-Path $Out).Path
-Write-Host ('  Saved {0:N0} records -> {1}' -f $allRecords.Count, $outFull) -ForegroundColor Green
+Write-Host ('  Saved {0:N0} records -> {1}' -f $allRecords.Count, $outPath) -ForegroundColor Green
 Write-Host ''
 Write-Host '  Next step:'
-Write-Host "   Place '$Out' in the same folder as index.html"
+Write-Host "   Place '$([System.IO.Path]::GetFileName($outPath))' in the same folder as index.html"
 Write-Host '   Then open (or refresh) index.html - it will load automatically.'
 Write-Host ''
 Write-Host '  Refresh cadence:'
