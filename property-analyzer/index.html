@@ -1233,7 +1233,15 @@ function parseListing(){
       if(p.length >= 5 && up.includes(p.toUpperCase()) && (!matched || p.length > matched.length)) matched = p;
     }
   }
-  if(matched){ $('project').value = matched; found.push('project'); }
+  if(matched){
+    $('project').value = matched;
+    found.push('project');
+    // Run the project autofill too. It sets district, segment, tenure and the lease
+    // commencement year from the data — all more reliable than the listing's own prose,
+    // and without it the lease-decay rule never fires on a pasted listing.
+    $('project').dispatchEvent(new Event('change'));
+    if($('leaseYear').value) found.push('lease year (from data)');
+  }
   else {
     // Fall back to the first line that reads like a name — listings almost always lead with it.
     const line = t.split('\n').map(s=>s.trim())
