@@ -298,6 +298,7 @@ const K = {
    monthly. Load that one first so this app never drifts behind it; the local
    copy is only a last resort. Cache-busted so a refresh is picked up at once. */
 const DATA_PATHS = [
+  '../ura_data.js',           // repo root — where Fetch-UraData.ps1 writes by default
   '../FetchURA/ura_data.js',
   '../Netlify%20upload_property/ura_data.js',
   '../House/ura_data.js',

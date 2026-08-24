@@ -30,11 +30,11 @@ SQFT_PER_SQM = 10.7639
 # Known dataset locations, relative to the repo root. The newest one wins — the browser
 # app picks the same way, so both always read the same file.
 DATA_CANDIDATES = [
+    "ura_data.js",
     "FetchURA/ura_data.js",
     "property-analyzer/ura_data.js",
     "Netlify upload_property/ura_data.js",
     "House/ura_data.js",
-    "ura_data.js",
 ]
 
 ELITE_PRIMARIES = [

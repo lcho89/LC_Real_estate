@@ -31,6 +31,7 @@ DIST = os.path.join(HERE, "dist")
 
 # Same candidates the browser probes, newest wins.
 CANDIDATES = [
+    os.path.join(ROOT, "ura_data.js"),          # Fetch-UraData.ps1 default output
     os.path.join(ROOT, "FetchURA", "ura_data.js"),
     os.path.join(ROOT, "Netlify upload_property", "ura_data.js"),
     os.path.join(ROOT, "House", "ura_data.js"),
