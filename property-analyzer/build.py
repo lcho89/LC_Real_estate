@@ -127,9 +127,22 @@ def main():
     with open(committed, "w", encoding="utf-8") as fh:
         fh.write(data)
 
-    if os.path.isdir(DIST):
-        shutil.rmtree(DIST)
-    os.makedirs(DIST)
+    # Clear dist's contents but never the directory itself: Windows refuses to rmdir a
+    # folder another process has open (the Vercel CLI, a shell sitting in it), and a
+    # half-deleted dist is worse than none — you can end up deploying an empty site.
+    # Keep .vercel too: it is the project link, and losing it makes the CLI ask
+    # "Which project?" again, which is how duplicate projects get created.
+    had_link = os.path.isdir(os.path.join(DIST, ".vercel"))
+    os.makedirs(DIST, exist_ok=True)
+    for name in os.listdir(DIST):
+        if name == ".vercel":
+            continue
+        victim = os.path.join(DIST, name)
+        if os.path.isdir(victim):
+            shutil.rmtree(victim)
+        else:
+            os.remove(victim)
+
     shutil.copy2(index, os.path.join(DIST, "index.html"))
     shutil.copy2(committed, os.path.join(DIST, "ura_data.js"))
     with open(os.path.join(DIST, "vercel.json"), "w", encoding="utf-8") as fh:
@@ -148,6 +161,8 @@ def main():
         print("Compacted   already dictionary-encoded, passed through")
     print(f"Wrote       property-analyzer/ura_data.js   (committed — git deploys serve this)")
     print(f"            property-analyzer/dist/         (index.html + data + vercel.json)")
+    if had_link:
+        print(f"            dist/.vercel preserved — the deploy stays linked to its project")
     if after > 90:
         print("\n  WARNING: over 90 MB — Vercel's static file limit is 100 MB.")
     print("\nDeploy from git:  git add property-analyzer/ura_data.js && git commit && git push")
