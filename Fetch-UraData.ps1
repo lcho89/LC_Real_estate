@@ -410,10 +410,20 @@ $projects  = $allRecords | ForEach-Object { $_[0] }  | Sort-Object -Unique
 $districtPreview = ($districts | Select-Object -First 10) -join ', '
 if ($districts.Count -gt 10) { $districtPreview += '...' }
 
+# A near-total Unknown tenure means the field moved or stopped being read.
+# It once failed silently for a whole dataset, so say so loudly.
+$unknownTenure = @($allRecords | Where-Object { $_[2] -eq 'Unknown' }).Count
+$unknownPct    = if ($allRecords.Count) { 100.0 * $unknownTenure / $allRecords.Count } else { 0 }
+
 Write-Host ('  Total records : {0:N0}' -f $allRecords.Count)
 Write-Host ('  Years         : {0}-{1}' -f ($years | Select-Object -First 1), ($years | Select-Object -Last 1))
 Write-Host ('  Districts     : {0}' -f $districtPreview)
 Write-Host ('  Projects      : {0:N0} unique' -f $projects.Count)
+if ($unknownPct -ge 50) {
+    Write-Host ('  Tenure        : {0:N0}% Unknown - the tenure field is not being read!' -f $unknownPct) -ForegroundColor Red
+} else {
+    Write-Host ('  Tenure        : {0:N0}% Unknown' -f $unknownPct)
+}
 Write-Host ''
 
 # Write ura_data.js — compact columnar payload, matching fetch_ura_data.py.
