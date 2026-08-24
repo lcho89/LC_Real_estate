@@ -165,9 +165,9 @@ def fetch_batch(session: requests.Session, batch: int, headers: dict) -> list:
             continue
         project_name  = format_project_name(raw_name)
         market_segment = project.get("marketSegment", "")
-        # Tenure is at project level, not transaction level
-        raw_tenure = project.get("tenure", "")
-        tenure_type, tenure_label = parse_tenure(raw_tenure)
+        # URA returns tenure per transaction; this project-level value is only a
+        # fallback for the rare record that carries it on the project instead.
+        project_tenure = project.get("tenure", "") or ""
 
         for tx in project.get("transaction", []):
             # Filter property types
@@ -195,6 +195,10 @@ def fetch_batch(session: requests.Session, batch: int, headers: dict) -> list:
             # District
             district_raw = tx.get("district", "00")
             district = f"D{district_raw.zfill(2)}"
+
+            # Tenure lives on the transaction. Fall back to the project only when absent.
+            raw_tenure = (tx.get("tenure", "") or "").strip() or project_tenure
+            tenure_type, tenure_label = parse_tenure(raw_tenure)
 
             # Derived fields
             bedroom   = area_to_bedroom(area_sqm)

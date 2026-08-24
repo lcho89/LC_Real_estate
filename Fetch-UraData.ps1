@@ -270,8 +270,9 @@ function Get-UraBatch {
 
         $projectName  = Format-ProjectName $project.project
         $marketSegment = if ($project.PSObject.Properties.Name -contains 'marketSegment') { $project.marketSegment } else { '' }
-        $rawTenure     = if ($project.PSObject.Properties.Name -contains 'tenure')        { $project.tenure }        else { '' }
-        $tenureParts   = Get-TenureParts $rawTenure
+        # URA returns tenure per transaction; this project-level read is only a
+        # fallback for the rare record that carries it on the project instead.
+        $projectTenure = if ($project.PSObject.Properties.Name -contains 'tenure') { $project.tenure } else { '' }
 
         if (-not ($project.PSObject.Properties.Name -contains 'transaction')) { continue }
 
@@ -300,6 +301,11 @@ function Get-UraBatch {
             $saleType    = if ($SALE_TYPE_MAP.ContainsKey($saleTypeRaw)) { $SALE_TYPE_MAP[$saleTypeRaw] } else { 'Unknown' }
 
             $floorRange  = if ($tx.PSObject.Properties.Name -contains 'floorRange') { $tx.floorRange } else { '' }
+
+            # Tenure lives on the transaction. Fall back to the project only when absent.
+            $txTenure    = if ($tx.PSObject.Properties.Name -contains 'tenure') { $tx.tenure } else { '' }
+            $rawTenure   = if (-not [string]::IsNullOrWhiteSpace($txTenure)) { $txTenure } else { $projectTenure }
+            $tenureParts = Get-TenureParts $rawTenure
 
             # Column order must match $COLS.
             $records.Add(@(
