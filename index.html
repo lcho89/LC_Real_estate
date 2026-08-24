@@ -441,6 +441,13 @@ python fetch_ura_data.py</div>
   </div>
 </div>
 
+<!-- Real data, when it exists alongside this file. Loaded with a plain script
+     tag rather than fetch() so the dashboard works when index.html is opened
+     directly from disk: browsers block fetch() of local files under the file://
+     origin. A missing file is a harmless 404 - the fetch path below still runs,
+     and the built-in sample data remains the last resort. -->
+<script src="ura_data.js"></script>
+
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════
